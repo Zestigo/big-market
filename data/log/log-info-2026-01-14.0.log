@@ -1,0 +1,38 @@
+26-01-14.17:41:49.702 [main            ] INFO  Application            - Starting Application using Java 1.8.0_462 on User1 with PID 24004 (E:\2JavaCode\BigMarket\big-market\big-market-app\target\classes started by hafutpurs in E:\2JavaCode\BigMarket\big-market)
+26-01-14.17:41:49.708 [main            ] INFO  Application            - The following 1 profile is active: "dev"
+26-01-14.17:41:50.865 [main            ] WARN  ClassPathMapperScanner - No MyBatis mapper was found in '[com.c]' package. Please check your configuration.
+26-01-14.17:41:51.365 [main            ] INFO  TomcatWebServer        - Tomcat initialized with port(s): 8091 (http)
+26-01-14.17:41:51.366 [main            ] INFO  AprLifecycleListener   - Loaded Apache Tomcat Native library [2.0.9] using APR version [1.7.6].
+26-01-14.17:41:51.367 [main            ] INFO  AprLifecycleListener   - APR capabilities: IPv6 [true], sendfile [true], accept filters [false], random [true], UDS [true].
+26-01-14.17:41:51.367 [main            ] INFO  AprLifecycleListener   - APR/OpenSSL configuration: useAprConnector [false], useOpenSSL [true]
+26-01-14.17:41:51.385 [main            ] INFO  AprLifecycleListener   - OpenSSL successfully initialized [OpenSSL 3.5.0 8 Apr 2025]
+26-01-14.17:41:51.395 [main            ] INFO  Http11NioProtocol      - Initializing ProtocolHandler ["http-nio-8091"]
+26-01-14.17:41:51.396 [main            ] INFO  StandardService        - Starting service [Tomcat]
+26-01-14.17:41:51.396 [main            ] INFO  StandardEngine         - Starting Servlet engine: [Apache Tomcat/9.0.75]
+26-01-14.17:41:51.501 [main            ] INFO  [/]                    - Initializing Spring embedded WebApplicationContext
+26-01-14.17:41:51.501 [main            ] INFO  ServletWebServerApplicationContext - Root WebApplicationContext: initialization completed in 1730 ms
+26-01-14.17:41:52.014 [main            ] INFO  Http11NioProtocol      - Starting ProtocolHandler ["http-nio-8091"]
+26-01-14.17:41:52.076 [main            ] INFO  TomcatWebServer        - Tomcat started on port(s): 8091 (http) with context path ''
+26-01-14.17:41:52.085 [main            ] INFO  Application            - Started Application in 3.148 seconds (JVM running for 4.363)
+26-01-14.17:41:55.715 [main            ] INFO  Application            - Starting Application using Java 1.8.0_462 on User1 with PID 4692 (E:\2JavaCode\BigMarket\big-market\big-market-app\target\classes started by hafutpurs in E:\2JavaCode\BigMarket\big-market)
+26-01-14.17:41:55.720 [main            ] INFO  Application            - The following 1 profile is active: "dev"
+26-01-14.17:41:56.803 [main            ] WARN  ClassPathMapperScanner - No MyBatis mapper was found in '[com.c]' package. Please check your configuration.
+26-01-14.17:41:57.543 [main            ] INFO  TomcatWebServer        - Tomcat initialized with port(s): 8091 (http)
+26-01-14.17:41:57.694 [main            ] INFO  ServletWebServerApplicationContext - Root WebApplicationContext: initialization completed in 1906 ms
+26-01-14.17:41:58.623 [main            ] INFO  TomcatWebServer        - Tomcat started on port(s): 8091 (http) with context path ''
+26-01-14.17:41:58.633 [main            ] INFO  Application            - Started Application in 3.942 seconds (JVM running for 5.024)
+26-01-14.17:41:59.847 [main            ] INFO  Application            - Starting Application using Java 1.8.0_462 on User1 with PID 20872 (E:\2JavaCode\BigMarket\big-market\big-market-app\target\classes started by hafutpurs in E:\2JavaCode\BigMarket\big-market)
+26-01-14.17:41:59.853 [main            ] INFO  Application            - The following 1 profile is active: "dev"
+26-01-14.17:42:00.758 [main            ] WARN  ClassPathMapperScanner - No MyBatis mapper was found in '[com.c]' package. Please check your configuration.
+26-01-14.17:42:01.279 [main            ] INFO  TomcatWebServer        - Tomcat initialized with port(s): 8091 (http)
+26-01-14.17:42:01.281 [main            ] INFO  AprLifecycleListener   - Loaded Apache Tomcat Native library [2.0.9] using APR version [1.7.6].
+26-01-14.17:42:01.281 [main            ] INFO  AprLifecycleListener   - APR capabilities: IPv6 [true], sendfile [true], accept filters [false], random [true], UDS [true].
+26-01-14.17:42:01.281 [main            ] INFO  AprLifecycleListener   - APR/OpenSSL configuration: useAprConnector [false], useOpenSSL [true]
+26-01-14.17:42:01.286 [main            ] INFO  AprLifecycleListener   - OpenSSL successfully initialized [OpenSSL 3.5.0 8 Apr 2025]
+26-01-14.17:42:01.296 [main            ] INFO  Http11NioProtocol      - Initializing ProtocolHandler ["http-nio-8091"]
+26-01-14.17:42:01.297 [main            ] INFO  StandardService        - Starting service [Tomcat]
+26-01-14.17:42:01.297 [main            ] INFO  StandardEngine         - Starting Servlet engine: [Apache Tomcat/9.0.75]
+26-01-14.17:42:01.414 [main            ] INFO  [/]                    - Initializing Spring embedded WebApplicationContext
+26-01-14.17:42:01.414 [main            ] INFO  ServletWebServerApplicationContext - Root WebApplicationContext: initialization completed in 1480 ms
+26-01-14.17:42:02.234 [main            ] INFO  TomcatWebServer        - Tomcat started on port(s): 8091 (http) with context path ''
+26-01-14.17:42:02.245 [main            ] INFO  Application            - Started Application in 3.047 seconds (JVM running for 4.984)

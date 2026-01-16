@@ -1,0 +1,25 @@
+26-01-15.19:15:56.986 [main            ] INFO  AwardDaoTest           - Starting AwardDaoTest using Java 1.8.0_462 on User1 with PID 18780 (started by hafutpurs in E:\2JavaCode\BigMarket\big-market\big-market-app)
+26-01-15.19:15:56.987 [main            ] INFO  AwardDaoTest           - The following 1 profile is active: "dev"
+26-01-15.19:15:59.563 [main            ] INFO  AwardDaoTest           - Started AwardDaoTest in 3.081 seconds (JVM running for 4.289)
+26-01-15.19:16:50.171 [main            ] INFO  AwardDaoTest           - Starting AwardDaoTest using Java 1.8.0_462 on User1 with PID 15500 (started by hafutpurs in E:\2JavaCode\BigMarket\big-market\big-market-app)
+26-01-15.19:16:50.172 [main            ] INFO  AwardDaoTest           - The following 1 profile is active: "dev"
+26-01-15.19:16:52.081 [main            ] INFO  AwardDaoTest           - Started AwardDaoTest in 2.445 seconds (JVM running for 3.194)
+26-01-15.19:17:58.991 [main            ] INFO  AwardDaoTest           - Starting AwardDaoTest using Java 1.8.0_462 on User1 with PID 20144 (started by hafutpurs in E:\2JavaCode\BigMarket\big-market\big-market-app)
+26-01-15.19:17:58.993 [main            ] INFO  AwardDaoTest           - The following 1 profile is active: "dev"
+26-01-15.19:18:00.854 [main            ] INFO  AwardDaoTest           - Started AwardDaoTest in 2.341 seconds (JVM running for 3.101)
+26-01-15.19:18:01.036 [main            ] INFO  HikariDataSource       - HikariPool-1 - Starting...
+26-01-15.19:18:01.302 [main            ] INFO  HikariDataSource       - HikariPool-1 - Start completed.
+26-01-15.19:18:01.509 [main            ] INFO  AwardDaoTest           - 测试结果：[{"awardDesc":"用户积分【优先透彻规则范围，如果没有则走配置】","awardId":101,"awardKey":"user_credit_random"},{"awardDesc":"OpenAI 增加使用次数","awardId":102,"awardKey":"openai_use_count"},{"awardDesc":"OpenAI 增加使用次数","awardId":103,"awardKey":"openai_use_count"},{"awardDesc":"OpenAI 增加使用次数","awardId":104,"awardKey":"openai_use_count"},{"awardDesc":"OpenAI 增加模型","awardId":105,"awardKey":"openai_model"},{"awardDesc":"OpenAI 增加模型","awardId":106,"awardKey":"openai_model"},{"awardDesc":"OpenAI 增加模型","awardId":107,"awardKey":"openai_model"},{"awardDesc":"OpenAI 增加使用次数","awardId":108,"awardKey":"openai_use_count"},{"awardDesc":"OpenAI 增加模型","awardId":109,"awardKey":"openai_model"},{"awardDesc":"黑名单积分","awardId":100,"awardKey":"user_credit_blacklist"}]
+26-01-15.19:18:01.518 [SpringApplicationShutdownHook] INFO  HikariDataSource       - HikariPool-1 - Shutdown initiated...
+26-01-15.19:18:01.526 [SpringApplicationShutdownHook] INFO  HikariDataSource       - HikariPool-1 - Shutdown completed.
+26-01-15.20:21:51.955 [main            ] INFO  ApiTest                - Starting ApiTest using Java 1.8.0_462 on User1 with PID 22352 (started by hafutpurs in E:\2JavaCode\BigMarket\big-market\big-market-app)
+26-01-15.20:21:51.957 [main            ] INFO  ApiTest                - The following 1 profile is active: "dev"
+26-01-15.20:21:53.428 [main            ] INFO  RepositoryConfigurationDelegate - Multiple Spring Data modules found, entering strict repository configuration mode
+26-01-15.20:21:53.438 [main            ] INFO  RepositoryConfigurationDelegate - Bootstrapping Spring Data Redis repositories in DEFAULT mode.
+26-01-15.20:21:53.499 [main            ] INFO  RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 16 ms. Found 0 Redis repository interfaces.
+26-01-15.20:21:54.596 [main            ] INFO  Version                - Redisson 3.23.4
+26-01-15.20:21:55.124 [redisson-netty-2-4] INFO  MasterPubSubConnectionPool - 1 connections initialized for 192.168.21.130/192.168.21.130:16379
+26-01-15.20:21:55.142 [redisson-netty-2-13] INFO  MasterConnectionPool   - 5 connections initialized for 192.168.21.130/192.168.21.130:16379
+26-01-15.20:21:57.765 [main            ] INFO  EndpointLinksResolver  - Exposing 1 endpoint(s) beneath base path '/actuator'
+26-01-15.20:21:57.839 [main            ] INFO  ApiTest                - Started ApiTest in 6.377 seconds (JVM running for 7.588)
+26-01-15.20:21:58.198 [main            ] INFO  ApiTest                - 测试结果：101

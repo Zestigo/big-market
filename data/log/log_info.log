@@ -14,3 +14,102 @@
 26-01-15.12:28:17.606 [main            ] INFO  Http11NioProtocol      - Starting ProtocolHandler ["http-nio-8091"]
 26-01-15.12:28:17.654 [main            ] INFO  TomcatWebServer        - Tomcat started on port(s): 8091 (http) with context path ''
 26-01-15.12:28:17.662 [main            ] INFO  Application            - Started Application in 2.529 seconds (JVM running for 6.523)
+26-01-15.16:14:46.772 [main            ] INFO  Application            - Starting Application using Java 1.8.0_462 on User1 with PID 10264 (E:\2JavaCode\BigMarket\big-market\big-market-app\target\classes started by hafutpurs in E:\2JavaCode\BigMarket\big-market)
+26-01-15.16:14:46.774 [main            ] INFO  Application            - The following 1 profile is active: "dev"
+26-01-15.16:14:47.249 [main            ] WARN  ClassPathMapperScanner - No MyBatis mapper was found in '[com.c]' package. Please check your configuration.
+26-01-15.16:14:47.517 [main            ] INFO  TomcatWebServer        - Tomcat initialized with port(s): 8091 (http)
+26-01-15.16:14:47.518 [main            ] INFO  AprLifecycleListener   - Loaded Apache Tomcat Native library [2.0.9] using APR version [1.7.6].
+26-01-15.16:14:47.518 [main            ] INFO  AprLifecycleListener   - APR capabilities: IPv6 [true], sendfile [true], accept filters [false], random [true], UDS [true].
+26-01-15.16:14:47.518 [main            ] INFO  AprLifecycleListener   - APR/OpenSSL configuration: useAprConnector [false], useOpenSSL [true]
+26-01-15.16:14:47.545 [main            ] INFO  AprLifecycleListener   - OpenSSL successfully initialized [OpenSSL 3.5.0 8 Apr 2025]
+26-01-15.16:14:47.552 [main            ] INFO  Http11NioProtocol      - Initializing ProtocolHandler ["http-nio-8091"]
+26-01-15.16:14:47.552 [main            ] INFO  StandardService        - Starting service [Tomcat]
+26-01-15.16:14:47.552 [main            ] INFO  StandardEngine         - Starting Servlet engine: [Apache Tomcat/9.0.75]
+26-01-15.16:14:47.632 [main            ] INFO  [/]                    - Initializing Spring embedded WebApplicationContext
+26-01-15.16:14:47.632 [main            ] INFO  ServletWebServerApplicationContext - Root WebApplicationContext: initialization completed in 824 ms
+26-01-15.16:14:48.025 [main            ] WARN  AnnotationConfigServletWebServerApplicationContext - Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'sqlSessionFactory' defined in class path resource [org/mybatis/spring/boot/autoconfigure/MybatisAutoConfiguration.class]: Bean instantiation via factory method failed; nested exception is org.springframework.beans.BeanInstantiationException: Failed to instantiate [org.apache.ibatis.session.SqlSessionFactory]: Factory method 'sqlSessionFactory' threw exception; nested exception is org.springframework.core.NestedIOException: Failed to parse mapping resource: 'file [E:\2JavaCode\BigMarket\big-market\big-market-app\target\classes\mybatis\mapper\frame_case_mapper.xml]'; nested exception is org.apache.ibatis.builder.BuilderException: Error parsing Mapper XML. The XML location is 'file [E:\2JavaCode\BigMarket\big-market\big-market-app\target\classes\mybatis\mapper\frame_case_mapper.xml]'. Cause: org.apache.ibatis.builder.BuilderException: Error resolving class. Cause: org.apache.ibatis.type.TypeException: Could not resolve type alias 'com.c.infrastructure.persistent.po.A'.  Cause: java.lang.ClassNotFoundException: Cannot find class: com.c.infrastructure.persistent.po.A
+26-01-15.16:14:48.027 [main            ] INFO  StandardService        - Stopping service [Tomcat]
+26-01-15.16:14:48.035 [main            ] INFO  ConditionEvaluationReportLoggingListener - 
+
+Error starting ApplicationContext. To display the conditions report re-run your application with 'debug' enabled.
+26-01-15.16:14:48.051 [main            ] ERROR SpringApplication      - Application run failed
+org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'sqlSessionFactory' defined in class path resource [org/mybatis/spring/boot/autoconfigure/MybatisAutoConfiguration.class]: Bean instantiation via factory method failed; nested exception is org.springframework.beans.BeanInstantiationException: Failed to instantiate [org.apache.ibatis.session.SqlSessionFactory]: Factory method 'sqlSessionFactory' threw exception; nested exception is org.springframework.core.NestedIOException: Failed to parse mapping resource: 'file [E:\2JavaCode\BigMarket\big-market\big-market-app\target\classes\mybatis\mapper\frame_case_mapper.xml]'; nested exception is org.apache.ibatis.builder.BuilderException: Error parsing Mapper XML. The XML location is 'file [E:\2JavaCode\BigMarket\big-market\big-market-app\target\classes\mybatis\mapper\frame_case_mapper.xml]'. Cause: org.apache.ibatis.builder.BuilderException: Error resolving class. Cause: org.apache.ibatis.type.TypeException: Could not resolve type alias 'com.c.infrastructure.persistent.po.A'.  Cause: java.lang.ClassNotFoundException: Cannot find class: com.c.infrastructure.persistent.po.A
+	at org.springframework.beans.factory.support.ConstructorResolver.instantiate(ConstructorResolver.java:658)
+	at org.springframework.beans.factory.support.ConstructorResolver.instantiateUsingFactoryMethod(ConstructorResolver.java:638)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.instantiateUsingFactoryMethod(AbstractAutowireCapableBeanFactory.java:1352)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBeanInstance(AbstractAutowireCapableBeanFactory.java:1195)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:582)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:542)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:335)
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:234)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:333)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:208)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.preInstantiateSingletons(DefaultListableBeanFactory.java:955)
+	at org.springframework.context.support.AbstractApplicationContext.finishBeanFactoryInitialization(AbstractApplicationContext.java:920)
+	at org.springframework.context.support.AbstractApplicationContext.refresh(AbstractApplicationContext.java:583)
+	at org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext.refresh(ServletWebServerApplicationContext.java:147)
+	at org.springframework.boot.SpringApplication.refresh(SpringApplication.java:731)
+	at org.springframework.boot.SpringApplication.refreshContext(SpringApplication.java:408)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:307)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1303)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1292)
+	at com.c.Application.main(Application.java:12)
+Caused by: org.springframework.beans.BeanInstantiationException: Failed to instantiate [org.apache.ibatis.session.SqlSessionFactory]: Factory method 'sqlSessionFactory' threw exception; nested exception is org.springframework.core.NestedIOException: Failed to parse mapping resource: 'file [E:\2JavaCode\BigMarket\big-market\big-market-app\target\classes\mybatis\mapper\frame_case_mapper.xml]'; nested exception is org.apache.ibatis.builder.BuilderException: Error parsing Mapper XML. The XML location is 'file [E:\2JavaCode\BigMarket\big-market\big-market-app\target\classes\mybatis\mapper\frame_case_mapper.xml]'. Cause: org.apache.ibatis.builder.BuilderException: Error resolving class. Cause: org.apache.ibatis.type.TypeException: Could not resolve type alias 'com.c.infrastructure.persistent.po.A'.  Cause: java.lang.ClassNotFoundException: Cannot find class: com.c.infrastructure.persistent.po.A
+	at org.springframework.beans.factory.support.SimpleInstantiationStrategy.instantiate(SimpleInstantiationStrategy.java:185)
+	at org.springframework.beans.factory.support.ConstructorResolver.instantiate(ConstructorResolver.java:653)
+	... 19 common frames omitted
+Caused by: org.springframework.core.NestedIOException: Failed to parse mapping resource: 'file [E:\2JavaCode\BigMarket\big-market\big-market-app\target\classes\mybatis\mapper\frame_case_mapper.xml]'; nested exception is org.apache.ibatis.builder.BuilderException: Error parsing Mapper XML. The XML location is 'file [E:\2JavaCode\BigMarket\big-market\big-market-app\target\classes\mybatis\mapper\frame_case_mapper.xml]'. Cause: org.apache.ibatis.builder.BuilderException: Error resolving class. Cause: org.apache.ibatis.type.TypeException: Could not resolve type alias 'com.c.infrastructure.persistent.po.A'.  Cause: java.lang.ClassNotFoundException: Cannot find class: com.c.infrastructure.persistent.po.A
+	at org.mybatis.spring.SqlSessionFactoryBean.buildSqlSessionFactory(SqlSessionFactoryBean.java:613)
+	at org.mybatis.spring.SqlSessionFactoryBean.afterPropertiesSet(SqlSessionFactoryBean.java:491)
+	at org.mybatis.spring.SqlSessionFactoryBean.getObject(SqlSessionFactoryBean.java:633)
+	at org.mybatis.spring.boot.autoconfigure.MybatisAutoConfiguration.sqlSessionFactory(MybatisAutoConfiguration.java:179)
+	at org.mybatis.spring.boot.autoconfigure.MybatisAutoConfiguration$$EnhancerBySpringCGLIB$$f7aba34f.CGLIB$sqlSessionFactory$0(<generated>)
+	at org.mybatis.spring.boot.autoconfigure.MybatisAutoConfiguration$$EnhancerBySpringCGLIB$$f7aba34f$$FastClassBySpringCGLIB$$3b31c3c4.invoke(<generated>)
+	at org.springframework.cglib.proxy.MethodProxy.invokeSuper(MethodProxy.java:244)
+	at org.springframework.context.annotation.ConfigurationClassEnhancer$BeanMethodInterceptor.intercept(ConfigurationClassEnhancer.java:331)
+	at org.mybatis.spring.boot.autoconfigure.MybatisAutoConfiguration$$EnhancerBySpringCGLIB$$f7aba34f.sqlSessionFactory(<generated>)
+	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62)
+	at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.lang.reflect.Method.invoke(Method.java:498)
+	at org.springframework.beans.factory.support.SimpleInstantiationStrategy.instantiate(SimpleInstantiationStrategy.java:154)
+	... 20 common frames omitted
+Caused by: org.apache.ibatis.builder.BuilderException: Error parsing Mapper XML. The XML location is 'file [E:\2JavaCode\BigMarket\big-market\big-market-app\target\classes\mybatis\mapper\frame_case_mapper.xml]'. Cause: org.apache.ibatis.builder.BuilderException: Error resolving class. Cause: org.apache.ibatis.type.TypeException: Could not resolve type alias 'com.c.infrastructure.persistent.po.A'.  Cause: java.lang.ClassNotFoundException: Cannot find class: com.c.infrastructure.persistent.po.A
+	at org.apache.ibatis.builder.xml.XMLMapperBuilder.configurationElement(XMLMapperBuilder.java:123)
+	at org.apache.ibatis.builder.xml.XMLMapperBuilder.parse(XMLMapperBuilder.java:95)
+	at org.mybatis.spring.SqlSessionFactoryBean.buildSqlSessionFactory(SqlSessionFactoryBean.java:611)
+	... 33 common frames omitted
+Caused by: org.apache.ibatis.builder.BuilderException: Error resolving class. Cause: org.apache.ibatis.type.TypeException: Could not resolve type alias 'com.c.infrastructure.persistent.po.A'.  Cause: java.lang.ClassNotFoundException: Cannot find class: com.c.infrastructure.persistent.po.A
+	at org.apache.ibatis.builder.BaseBuilder.resolveClass(BaseBuilder.java:118)
+	at org.apache.ibatis.builder.xml.XMLMapperBuilder.resultMapElement(XMLMapperBuilder.java:263)
+	at org.apache.ibatis.builder.xml.XMLMapperBuilder.resultMapElement(XMLMapperBuilder.java:254)
+	at org.apache.ibatis.builder.xml.XMLMapperBuilder.resultMapElements(XMLMapperBuilder.java:246)
+	at org.apache.ibatis.builder.xml.XMLMapperBuilder.configurationElement(XMLMapperBuilder.java:119)
+	... 35 common frames omitted
+Caused by: org.apache.ibatis.type.TypeException: Could not resolve type alias 'com.c.infrastructure.persistent.po.A'.  Cause: java.lang.ClassNotFoundException: Cannot find class: com.c.infrastructure.persistent.po.A
+	at org.apache.ibatis.type.TypeAliasRegistry.resolveAlias(TypeAliasRegistry.java:120)
+	at org.apache.ibatis.builder.BaseBuilder.resolveAlias(BaseBuilder.java:149)
+	at org.apache.ibatis.builder.BaseBuilder.resolveClass(BaseBuilder.java:116)
+	... 39 common frames omitted
+Caused by: java.lang.ClassNotFoundException: Cannot find class: com.c.infrastructure.persistent.po.A
+	at org.apache.ibatis.io.ClassLoaderWrapper.classForName(ClassLoaderWrapper.java:196)
+	at org.apache.ibatis.io.ClassLoaderWrapper.classForName(ClassLoaderWrapper.java:89)
+	at org.apache.ibatis.io.Resources.classForName(Resources.java:261)
+	at org.apache.ibatis.type.TypeAliasRegistry.resolveAlias(TypeAliasRegistry.java:116)
+	... 41 common frames omitted
+26-01-15.16:14:58.122 [main            ] INFO  Application            - Starting Application using Java 1.8.0_462 on User1 with PID 668 (E:\2JavaCode\BigMarket\big-market\big-market-app\target\classes started by hafutpurs in E:\2JavaCode\BigMarket\big-market)
+26-01-15.16:14:58.124 [main            ] INFO  Application            - The following 1 profile is active: "dev"
+26-01-15.16:14:58.557 [main            ] WARN  ClassPathMapperScanner - No MyBatis mapper was found in '[com.c]' package. Please check your configuration.
+26-01-15.16:14:58.801 [main            ] INFO  TomcatWebServer        - Tomcat initialized with port(s): 8091 (http)
+26-01-15.16:14:58.802 [main            ] INFO  AprLifecycleListener   - Loaded Apache Tomcat Native library [2.0.9] using APR version [1.7.6].
+26-01-15.16:14:58.802 [main            ] INFO  AprLifecycleListener   - APR capabilities: IPv6 [true], sendfile [true], accept filters [false], random [true], UDS [true].
+26-01-15.16:14:58.802 [main            ] INFO  AprLifecycleListener   - APR/OpenSSL configuration: useAprConnector [false], useOpenSSL [true]
+26-01-15.16:14:58.806 [main            ] INFO  AprLifecycleListener   - OpenSSL successfully initialized [OpenSSL 3.5.0 8 Apr 2025]
+26-01-15.16:14:58.811 [main            ] INFO  Http11NioProtocol      - Initializing ProtocolHandler ["http-nio-8091"]
+26-01-15.16:14:58.811 [main            ] INFO  StandardService        - Starting service [Tomcat]
+26-01-15.16:14:58.813 [main            ] INFO  StandardEngine         - Starting Servlet engine: [Apache Tomcat/9.0.75]
+26-01-15.16:14:58.879 [main            ] INFO  [/]                    - Initializing Spring embedded WebApplicationContext
+26-01-15.16:14:58.879 [main            ] INFO  ServletWebServerApplicationContext - Root WebApplicationContext: initialization completed in 723 ms
+26-01-15.16:14:59.247 [main            ] INFO  Http11NioProtocol      - Starting ProtocolHandler ["http-nio-8091"]
+26-01-15.16:14:59.298 [main            ] INFO  TomcatWebServer        - Tomcat started on port(s): 8091 (http) with context path ''
+26-01-15.16:14:59.305 [main            ] INFO  Application            - Started Application in 1.568 seconds (JVM running for 2.166)

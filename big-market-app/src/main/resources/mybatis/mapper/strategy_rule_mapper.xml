@@ -12,12 +12,26 @@
         <result column="rule_desc" property="ruleDesc"/>
         <result column="create_time" property="createTime"/>
         <result column="update_time" property="updateTime"/>
-        </resultMap>
+    </resultMap>
 
-    <select id="queryStrategyRuleList"  resultMap="dataMap">
+    <select id="queryStrategyRuleList" resultMap="dataMap">
         SELECT strategy_id
         FROM strategy_rule
         limit 10
     </select>
 
+    <select id="queryStrategyRuleValue"
+            parameterType="com.c.infrastructure.dao.po.StrategyRule" resultType="java.lang.String">
+        SELECT rule_value FROM strategy_rule
+        where strategy_id = #{strategyId} and rule_model = #{ruleModel}
+        <if test="awardId != null">and award_id = #{awardId}</if>
+    </select>
+
+    <select id="queryStrategyRule"
+            parameterType="com.c.infrastructure.dao.po.StrategyRule" resultMap="dataMap">
+        SELECT strategy_id, award_id, rule_type, rule_model, rule_value, rule_desc
+        FROM strategy_rule
+        where strategy_id = #{strategyId}
+          and rule_model = #{ruleModel}
+    </select>
 </mapper>

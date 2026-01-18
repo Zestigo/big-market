@@ -12,7 +12,7 @@
         <result column="update_time" property="updateTime"/>
     </resultMap>
 
-    <select id="queryAwardList"  resultMap="dataMap">
+    <select id="queryAwardList" resultMap="dataMap">
         SELECT award_id, award_key, award_desc
         FROM award
         limit 10

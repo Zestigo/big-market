@@ -27,5 +27,10 @@
         FROM strategy_award
         where strategy_id = #{strategyId}
     </select>
+    <select id="queryStrategyAwardRuleModel" resultType="java.lang.String">
+        SELECT rule_models
+        FROM strategy_award
+        where strategy_id = #{strategyId} and award_id = #{awardId}
+    </select>
 
 </mapper>

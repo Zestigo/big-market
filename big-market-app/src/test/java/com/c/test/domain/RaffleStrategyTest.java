@@ -5,7 +5,7 @@ import com.c.domain.strategy.model.entity.RaffleAwardEntity;
 import com.c.domain.strategy.model.entity.RaffleFactorEntity;
 import com.c.domain.strategy.service.IRaffleStrategy;
 import com.c.domain.strategy.service.armory.IStrategyArmory;
-import com.c.domain.strategy.service.rule.impl.RuleWeightLogicFilter;
+import com.c.domain.strategy.service.rule.chain.impl.RuleWeightLogicChain;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.Before;
 import org.junit.Test;
@@ -28,7 +28,7 @@ public class RaffleStrategyTest {
     private IRaffleStrategy raffleStrategy;
 
     @Resource
-    private RuleWeightLogicFilter ruleWeightLogicFilter;
+    private RuleWeightLogicChain ruleWeightLogicChain;
 
 
     @Resource
@@ -42,7 +42,7 @@ public class RaffleStrategyTest {
         log.info("策略装配结果：{}", success);
 
         // 2. 模拟权重分值
-        ReflectionTestUtils.setField(ruleWeightLogicFilter, "userScore", 4500L);
+        ReflectionTestUtils.setField(ruleWeightLogicChain, "userScore", 4500L);
     }
 
     /**

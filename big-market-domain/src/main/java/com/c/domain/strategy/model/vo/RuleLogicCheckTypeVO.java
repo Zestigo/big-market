@@ -3,6 +3,12 @@ package com.c.domain.strategy.model.vo;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
+/**
+ * 规则逻辑检查类型 VO
+ *
+ * @author cyh
+ * @date 2026/01/19
+ */
 @Getter
 @AllArgsConstructor
 public enum RuleLogicCheckTypeVO {

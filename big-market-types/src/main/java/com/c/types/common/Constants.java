@@ -6,6 +6,9 @@ public class Constants {
     public final static String SPACE = " ";
     public static final String RULE_WEIGHT = "rule_weight";
     public static final String RULE_BLACKLIST = "rule_blacklist";
+    public static final String RULE_LOCK = "rule_lock";
+    public static final String RULE_LOCK_AWARD = "rule_lock_award";
+
     public static class RedisKey {
         public static String STRATEGY_STRATEGY_KEY = "big_market_strategy_key_";
         public static String STRATEGY_AWARD_KEY = "big_market_strategy_award_key_";

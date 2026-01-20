@@ -3,6 +3,7 @@ package com.c.infrastructure.adapter.repository;
 import com.c.domain.strategy.model.entity.StrategyAwardEntity;
 import com.c.domain.strategy.model.entity.StrategyEntity;
 import com.c.domain.strategy.model.entity.StrategyRuleEntity;
+import com.c.domain.strategy.model.vo.StrategyAwardRuleModelVO;
 import com.c.domain.strategy.repository.IStrategyRepository;
 import com.c.infrastructure.dao.IStrategyAwardDao;
 import com.c.infrastructure.dao.IStrategyDao;
@@ -130,6 +131,11 @@ public class StrategyRepository implements IStrategyRepository {
         return strategyRuleDao.queryStrategyRuleValue(strategyRule);
     }
 
+    @Override
+    public String queryStrategyRuleValue(Long strategyId, String ruleModel) {
+        return queryStrategyRuleValue(strategyId, null, ruleModel);
+    }
+
     /**
      * 查询策略主体信息实体
      *
@@ -178,5 +184,12 @@ public class StrategyRepository implements IStrategyRepository {
         return StrategyRuleEntity.builder().strategyId(strategyRuleRes.getStrategyId()).awardId(strategyRuleRes.getAwardId())
                                  .ruleType(strategyRuleRes.getRuleType()).ruleModel(strategyRuleRes.getRuleModel())
                                  .ruleValue(strategyRuleRes.getRuleValue()).ruleDesc(strategyRuleRes.getRuleDesc()).build();
+    }
+
+    @Override
+    public StrategyAwardRuleModelVO queryStrategyAwardRuleModel(Long strategyId, Integer awardId) {
+        StrategyAward strategyAward = StrategyAward.builder().strategyId(strategyId).awardId(awardId).build();
+        String ruleModel = strategyAwardDao.queryStrategyAwardRuleModel();
+        return StrategyAwardRuleModelVO.builder().ruleModels(ruleModel).build();
     }
 }

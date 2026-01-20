@@ -12,4 +12,6 @@ public interface IStrategyAwardDao {
 
     // 根据策略ID查询奖项
     List<StrategyAward> queryStrategyAwardListByStrategyId(Long strategyId);
+
+    String queryStrategyAwardRuleModel();
 }

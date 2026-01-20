@@ -1,8 +1,7 @@
-package com.c.domain.strategy.service.rule;
+package com.c.domain.strategy.service.rule.filter;
 
 import com.c.domain.strategy.model.entity.RuleActionEntity;
 import com.c.domain.strategy.model.entity.RuleMatterEntity;
-import org.dom4j.rule.Rule;
 
 /**
  * 抽奖规则过滤接口

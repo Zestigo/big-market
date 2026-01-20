@@ -1,16 +1,15 @@
-package com.c.domain.strategy.service.rule.factory;
+package com.c.domain.strategy.service.rule.filter.factory;
 
 import com.c.domain.strategy.model.entity.RuleActionEntity;
 import com.c.domain.strategy.service.annotation.LogicStrategy;
-import com.c.domain.strategy.service.rule.ILogicFilter;
+import com.c.domain.strategy.service.rule.filter.ILogicFilter;
 import com.c.types.common.Constants;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -73,17 +72,35 @@ public class DefaultLogicFactory {
         /**
          * 权重规则：抽奖前根据奖品权重，筛选出当前用户可抽奖的奖品范围KEY
          */
-        RULE_WEIGHT(Constants.RULE_WEIGHT, "【抽奖前规则】根据抽奖权重返回可抽奖范围KEY"),
+        RULE_WEIGHT(Constants.RULE_WEIGHT, "【抽奖前规则】根据抽奖权重返回可抽奖范围KEY", "before"),
 
         /**
          * 黑名单规则：抽奖前过滤黑名单用户，命中黑名单则直接返回不中奖
          */
-        RULE_BLACKLIST(Constants.RULE_BLACKLIST, "【抽奖前规则】黑名单规则过滤，命中黑名单则直接返回"),
+        RULE_BLACKLIST(Constants.RULE_BLACKLIST, "【抽奖前规则】黑名单规则过滤，命中黑名单则直接返回", "before"),
+
+        /**
+         * 黑名单规则：抽奖前过滤黑名单用户，命中黑名单则直接返回不中奖
+         */
+        RULE_LOCK(Constants.RULE_LOCK, "【抽奖中规则】抽奖 n 次后，对应奖品可解锁抽奖", "center"), RULE_LOCK_AWARD(Constants.RULE_LOCK_AWARD,
+                "【抽奖后规则】幸运奖兜底奖品", "after"),
         ;
+
         /** 规则唯一编码（作为过滤器Map的Key） */
         private final String code;
         /** 规则说明（自注释，提升代码可读性） */
         private final String info;
+        /** 规则类型 */
+        private final String type;
 
+        // static!!!
+        public static boolean isCenter(String ruleModel) {
+            return "center".equals(LogicModel.valueOf(ruleModel.toUpperCase()).type);
+        }
+        public static boolean isAfter(String ruleModel) {
+            return "after".equals(LogicModel.valueOf(ruleModel.toUpperCase()).type);
+        }
     }
 }
+
+

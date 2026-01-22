@@ -1,5 +1,6 @@
 package com.c.domain.strategy.model.vo;
 
+import com.c.domain.strategy.service.rule.filter.factory.DefaultLogicFactory;
 import com.c.types.common.Constants;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -22,4 +23,20 @@ import java.util.List;
 @NoArgsConstructor
 public class StrategyAwardRuleModelVO {
     private String ruleModels;
+
+        public String[] raffleCenterRuleModelList() {
+            List<String> ruleModelList = new ArrayList<>();
+            for (String ruleModel : ruleModels.split(Constants.SPLIT)) {
+                if (DefaultLogicFactory.LogicModel.isCenter(ruleModel)) ruleModelList.add(ruleModel);
+            }
+            return ruleModelList.toArray(new String[0]);
+        }
+
+        public String[] raffleAfterRuleModelList() {
+            List<String> ruleModelList = new ArrayList<>();
+        for (String ruleModel : ruleModels.split(Constants.SPLIT)) {
+            if (DefaultLogicFactory.LogicModel.isAfter(ruleModel)) ruleModelList.add(ruleModel);
+        }
+        return ruleModelList.toArray(new String[0]);
+    }
 }

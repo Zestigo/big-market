@@ -19,8 +19,8 @@ public interface IDecisionTreeEngine {
      * @param userId     用户唯一标识，用于规则节点中的身份校验、次数过滤、人群匹配等业务判断
      * @param strategyId 策略配置ID，用于关联具体的抽奖策略或业务规则集
      * @param awardId    初始奖品ID，作为决策树处理的基准目标（如判断该奖品库存、限额等）
-     * @return {@link DefaultTreeFactory.StrategyAwardVO} 决策结果，包含最终确定的奖品ID及对应的策略附加属性
+     * @return {@link DefaultTreeFactory.StrategyAwardData} 决策结果，包含最终确定的奖品ID及对应的策略附加属性
      * @throws RuntimeException 当决策链路配置异常或节点逻辑计算无法匹配下一跳时，应抛出异常以保证流程安全性
      */
-    DefaultTreeFactory.StrategyAwardVO process(String userId, Long strategyId, Integer awardId);
+    DefaultTreeFactory.StrategyAwardData process(String userId, Long strategyId, Integer awardId);
 }

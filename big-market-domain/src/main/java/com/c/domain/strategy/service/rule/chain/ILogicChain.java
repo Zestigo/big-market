@@ -1,7 +1,5 @@
 package com.c.domain.strategy.service.rule.chain;
 
-import com.c.domain.strategy.service.rule.chain.factory.DefaultChainFactory;
-
 /**
  * 抽奖策略规则过滤责任链接口
  * *该接口定义了责任链模式的标准行为：
@@ -21,6 +19,6 @@ public interface ILogicChain extends ILogicChainArmory {
      * @param strategyId 策略ID：对应具体的抽奖配置
      * @return 奖品ID。若当前节点无法决策，通常由下一个节点返回；若被拦截，则返回特定奖品或 NULL。
      */
-    DefaultChainFactory.StrategyAwardVO logic(String userId, Long strategyId);
+    Integer logic(String userId, Long strategyId);
 
 }

@@ -5,7 +5,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.io.Serializable;
 import java.util.Map;
 
 /**
@@ -18,15 +17,26 @@ import java.util.Map;
 @Data
 @Builder
 @AllArgsConstructor
-@NoArgsConstructor // 必须有无参构造函数，否则反序列化会失败
-public class RuleTreeVO implements Serializable {
-    private static final long serialVersionUID = -1L;
+@NoArgsConstructor
+public class RuleTreeVO {
 
-    private String treeId;
+    /** 规则树ID：数据库唯一标识，用于在业务逻辑中指定调用哪棵规则树 */
+    private Integer treeId;
+
+    /** 规则树名称：直观展示业务含义（如：抽奖概率规则树、风控准入规则树） */
     private String treeName;
+
+    /** 规则树描述：详细记录该树的设计意图及业务规则背景 */
     private String treeDesc;
+
+    /** 规则根节点：决策引擎执行的起点。其值对应 treeNodeMap 中的一个 ruleKey */
     private String treeRootRuleNode;
 
-    // 检查点：确保属性名是 treeNodeMap，且类型是 Map
+    /**
+     * 规则节点映射表：
+     * Key 为节点标识（ruleKey），Value 为对应的节点配置对象。
+     * 引擎通过该 Map 快速检索每一个逻辑判定点的详细内容。
+     */
     private Map<String, RuleTreeNodeVO> treeNodeMap;
+
 }

@@ -2,7 +2,7 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.c.infrastructure.dao.IStrategyAwardDao">
 
-    <resultMap id="dataMap" type="com.c.infrastructure.po.StrategyAward">
+    <resultMap id="dataMap" type="com.c.infrastructure.dao.po.StrategyAward">
         <id column="id" property="id"/>
         <result column="strategy_id" property="strategyId"/>
         <result column="award_id" property="awardId"/>
@@ -16,29 +16,21 @@
         <result column="create_time" property="createTime"/>
         <result column="update_time" property="updateTime"/>
     </resultMap>
-    <update id="updateStrategyAwardStock" parameterType="com.c.infrastructure.po.StrategyAward">
-        update strategy_award
-        Set award_count_surplus = award_count_surplus - 1
-        where strategy_id = #{strategyId}
-          and award_id = #{awardId}
-          and award_count_surplus > 0
-    </update>
 
     <select id="queryStrategyAwardList" resultMap="dataMap">
         SELECT strategy_id
         FROM strategy_award
         limit 10
     </select>
-    <select id="queryStrategyAwardListByStrategyId" parameterType="java.lang.Long" resultMap="dataMap">
+    <select id="queryStrategyAwardListByStrategyId"  parameterType="java.lang.Long" resultMap="dataMap">
         SELECT strategy_id, award_id, award_count, award_count_surplus, award_rate
         FROM strategy_award
         where strategy_id = #{strategyId}
     </select>
-    <select id="queryStrategyAwardRuleModel" resultType="java.lang.String" parameterType="com.c.infrastructure.po.StrategyAward">
+    <select id="queryStrategyAwardRuleModel" resultType="java.lang.String">
         SELECT rule_models
         FROM strategy_award
-        where strategy_id = #{strategyId}
-          and award_id = #{awardId}
+        where strategy_id = #{strategyId} and award_id = #{awardId}
     </select>
 
 </mapper>

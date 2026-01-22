@@ -3,16 +3,10 @@ package com.c.test.domain;
 import com.alibaba.fastjson.JSON;
 import com.c.domain.strategy.model.entity.RaffleAwardEntity;
 import com.c.domain.strategy.model.entity.RaffleFactorEntity;
-import com.c.domain.strategy.model.vo.StrategyAwardStockKeyVO;
-import com.c.domain.strategy.service.IRaffleStock;
 import com.c.domain.strategy.service.IRaffleStrategy;
 import com.c.domain.strategy.service.armory.IStrategyArmory;
 import com.c.domain.strategy.service.rule.chain.impl.RuleWeightLogicChain;
-import com.c.domain.strategy.service.rule.tree.impl.RuleLockLogicTreeNode;
-import com.c.infrastructure.dao.IRuleTreeNodeDao;
-import com.c.infrastructure.po.RuleTreeNode;
 import lombok.extern.slf4j.Slf4j;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -21,96 +15,68 @@ import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import javax.annotation.Resource;
-import java.util.List;
-import java.util.concurrent.CountDownLatch;
 
 /**
- * @author Fuzhengwei bugstack.cn @小傅哥
- * @description 抽奖策略测试
- * @create 2024-01-06 13:28
+ * @description 抽奖策略领域测试
+ * 重点测试：前置规则过滤（黑名单、权重）、常规抽奖算法、奖池库存消耗等逻辑。
  */
 @Slf4j
 @RunWith(SpringRunner.class)
 @SpringBootTest
 public class RaffleStrategyTest {
+    @Resource
+    private IRaffleStrategy raffleStrategy;
+
+    @Resource
+    private RuleWeightLogicChain ruleWeightLogicChain;
+
 
     @Resource
     private IStrategyArmory strategyArmory;
-    @Resource
-    private IRaffleStrategy raffleStrategy;
-    @Resource
-    private RuleWeightLogicChain ruleWeightLogicChain;
-    @Resource
-    private RuleLockLogicTreeNode ruleLockLogicTreeNode;
-
-    @Resource
-    private IRaffleStock raffleStock;
 
     @Before
     public void setUp() {
-        // 策略装配 100001、100002、100003
-//        log.info("测试结果：{}", strategyArmory.assembleLotteryStrategy(100001L));
-        log.info("测试结果：{}", strategyArmory.assembleLotteryStrategy(100006L));
+        // 1. 核心修复：执行策略装配。将 100001L 策略的奖品概率表预热到 Redis
+        // 否则后续在执行 getRandomAwardId 时，由于 Redis 没数据，getRateRange 会返回 null 并导致 NPE
+        boolean success = strategyArmory.assembleLotteryStrategy(100001L);
+        log.info("策略装配结果：{}", success);
 
-        // 通过反射 mock 规则中的值
-        ReflectionTestUtils.setField(ruleWeightLogicChain, "userScore", 4900L);
-        ReflectionTestUtils.setField(ruleLockLogicTreeNode, "userRaffleCount", 10L);
-    }
-    @Resource
-    private IRuleTreeNodeDao ruleTreeNodeDao;
-
-    @Test
-    public void test_performRaffle() throws InterruptedException {
-        for (int i = 0; i < 3; i++) {
-            RaffleFactorEntity raffleFactorEntity = RaffleFactorEntity.builder()
-                                                                      .userId("xiaofuge")
-                                                                      .strategyId(100006L)
-                                                                      .build();
-
-            RaffleAwardEntity raffleAwardEntity = raffleStrategy.performRaffle(raffleFactorEntity);
-
-            log.info("请求参数：{}", JSON.toJSONString(raffleFactorEntity));
-            log.info("测试结果：{}", JSON.toJSONString(raffleAwardEntity));
-        }
-
-        // 等待 UpdateAwardStockJob 消费队列
-        new CountDownLatch(1).await();
-    }
-
-    @Test
-    public void test_performRaffle_blacklist() {
-        RaffleFactorEntity raffleFactorEntity = RaffleFactorEntity.builder()
-                                                                  .userId("user003")  // 黑名单用户 user001,user002,user003
-                                                                  .strategyId(100001L)
-                                                                  .build();
-
-        RaffleAwardEntity raffleAwardEntity = raffleStrategy.performRaffle(raffleFactorEntity);
-
-        log.info("请求参数：{}", JSON.toJSONString(raffleFactorEntity));
-        log.info("测试结果：{}", JSON.toJSONString(raffleAwardEntity));
+        // 2. 模拟权重分值
+        ReflectionTestUtils.setField(ruleWeightLogicChain, "userScore", 4500L);
     }
 
     /**
-     * 次数错校验，抽奖n次后解锁。100003 策略，你可以通过调整 @Before 的 setUp 方法中个人抽奖次数来验证。比如最开始设置0，之后设置10
-     * ReflectionTestUtils.setField(ruleLockLogicFilter, "userRaffleCount", 10L);
+     * 测试：常规抽奖逻辑
+     * 验证：当用户不是黑名单且权重分值符合要求时，是否能正常根据概率获取奖品。
      */
     @Test
-    public void test_raffle_center_rule_lock() {
-        RaffleFactorEntity raffleFactorEntity = RaffleFactorEntity.builder()
-                                                                  .userId("xiaofuge")
-                                                                  .strategyId(100003L)
-                                                                  .build();
+    public void test_performRaffle() {
+        // 1. 构建抽奖因子：指定用户 ID 和 抽奖策略 ID
+        RaffleFactorEntity raffleFactorEntity = RaffleFactorEntity.builder().userId("CYH").strategyId(100001L).build();
 
+        // 2. 执行抽奖决策
         RaffleAwardEntity raffleAwardEntity = raffleStrategy.performRaffle(raffleFactorEntity);
 
-        log.info("请求参数：{}", JSON.toJSONString(raffleFactorEntity));
-        log.info("测试结果：{}", JSON.toJSONString(raffleAwardEntity));
+        // 3. 输出结果日志，观察返回的 awardId 和 awardConfig 是否符合预期
+        log.info("【标准抽奖测试】请求参数：{}", JSON.toJSONString(raffleFactorEntity));
+        log.info("【标准抽奖测试】测试结果：{}", JSON.toJSONString(raffleAwardEntity));
     }
 
+    /**
+     * 测试：黑名单拦截逻辑
+     * 场景：user003 是数据库中硬编码或配置在 rule_blacklist 中的用户。
+     * 预期：触发 RuleActionEntity.TAKE_OVER（接管），直接返回黑名单指定的固定奖品（如：0积分或小礼品），
+     * 且不会进入后续的随机概率抽奖。
+     */
     @Test
-    public void test_takeQueueValue() throws InterruptedException {
-        StrategyAwardStockKeyVO strategyAwardStockKeyVO = raffleStock.takeQueueValue();
-        log.info("测试结果：{}", JSON.toJSONString(strategyAwardStockKeyVO));
-    }
+    public void test_performRaffle_blacklist() {
+        // 1. 构建黑名单用户因子
+        RaffleFactorEntity raffleFactorEntity = RaffleFactorEntity.builder().userId("user003").strategyId(100001L).build();
 
+        // 2. 执行抽奖：此时内部 doCheckRaffleBeforeLogic 应该在第一步就命中黑名单过滤器并直接返回
+        RaffleAwardEntity raffleAwardEntity = raffleStrategy.performRaffle(raffleFactorEntity);
+
+        log.info("【黑名单拦截测试】请求参数：{}", JSON.toJSONString(raffleFactorEntity));
+        log.info("【黑名单拦截测试】测试结果：{}", JSON.toJSONString(raffleAwardEntity));
+    }
 }

@@ -2,7 +2,6 @@ package com.c.domain.strategy.service.rule.chain.impl;
 
 import com.c.domain.strategy.service.armory.IStrategyDispatch;
 import com.c.domain.strategy.service.rule.chain.AbstractLogicChain;
-import com.c.domain.strategy.service.rule.chain.factory.DefaultChainFactory;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -30,11 +29,11 @@ public class DefaultLogicChain extends AbstractLogicChain {
      * @return 最终抽取的奖品ID。作为兜底节点，此逻辑不再调用 next()，直接返回结果。
      */
     @Override
-    public DefaultChainFactory.StrategyAwardVO  logic(String userId, Long strategyId) {
+    public Integer logic(String userId, Long strategyId) {
         // 从默认的全量/基础奖品池中随机获取奖品ID
         Integer awardId = strategyDispatch.getRandomAwardId(strategyId);
         log.info("抽奖责任链-默认兜底节点处理完成 userId: {}, strategyId: {}, awardId: {}", userId, strategyId, awardId);
-        return DefaultChainFactory.StrategyAwardVO.builder().awardId(awardId).logicModel(ruleModel()).build();
+        return awardId;
     }
 
     /**
@@ -44,6 +43,6 @@ public class DefaultLogicChain extends AbstractLogicChain {
      */
     @Override
     protected String ruleModel() {
-        return DefaultChainFactory.LogicModel.RULE_DEFAULT.getCode();
+        return "default";
     }
 }

@@ -42,35 +42,35 @@ public class LogicTreeTest {
     @Test
     public void test_tree_rule() {
         // 1. 构建 [规则锁] 节点及连线
-        RuleTreeNodeVO rule_lock = RuleTreeNodeVO.builder().treeId(String.valueOf(100000001)).ruleKey("rule_lock").ruleDesc("抽奖次数锁判定")
+        RuleTreeNodeVO rule_lock = RuleTreeNodeVO.builder().treeId(100000001).ruleKey("rule_lock").ruleDesc("抽奖次数锁判定")
                                                  .ruleValue("1").treeNodeLineVOList(new ArrayList<RuleTreeNodeLineVO>() {{
                     // 连线1：锁拦截 -> 转幸运奖
-                    add(RuleTreeNodeLineVO.builder().treeId(String.valueOf(100000001)).ruleNodeFrom("rule_lock").ruleNodeTo("rule_luck_award")
+                    add(RuleTreeNodeLineVO.builder().treeId(100000001).ruleNodeFrom("rule_lock").ruleNodeTo("rule_luck_award")
                                           .ruleLimitType(RuleLimitTypeVO.EQUAL).ruleLimitValue(RuleLogicCheckTypeVO.TAKE_OVER)
                                           .build());
 
                     // 连线2：锁放行 -> 进库存校验
-                    add(RuleTreeNodeLineVO.builder().treeId(String.valueOf(100000001)).ruleNodeFrom("rule_lock").ruleNodeTo("rule_stock")
+                    add(RuleTreeNodeLineVO.builder().treeId(100000001).ruleNodeFrom("rule_lock").ruleNodeTo("rule_stock")
                                           .ruleLimitType(RuleLimitTypeVO.EQUAL).ruleLimitValue(RuleLogicCheckTypeVO.ALLOW)
                                           .build());
                 }}).build();
 
         // 2. 构建 [幸运奖] 节点 (最终接管节点，无出向连线)
-        RuleTreeNodeVO rule_luck_award = RuleTreeNodeVO.builder().treeId(String.valueOf(100000001)).ruleKey("rule_luck_award")
+        RuleTreeNodeVO rule_luck_award = RuleTreeNodeVO.builder().treeId(100000001).ruleKey("rule_luck_award")
                                                        .ruleDesc("兜底幸运奖励").ruleValue("1").treeNodeLineVOList(null).build();
 
         // 3. 构建 [库存规则] 节点及连线
-        RuleTreeNodeVO rule_stock = RuleTreeNodeVO.builder().treeId(String.valueOf(100000001)).ruleKey("rule_stock").ruleDesc("库存扣减校验")
+        RuleTreeNodeVO rule_stock = RuleTreeNodeVO.builder().treeId(100000001).ruleKey("rule_stock").ruleDesc("库存扣减校验")
                                                   .ruleValue(null).treeNodeLineVOList(new ArrayList<RuleTreeNodeLineVO>() {{
                     // 连线1：库存不足 -> 转幸运奖
-                    add(RuleTreeNodeLineVO.builder().treeId(String.valueOf(100000001)).ruleNodeFrom("rule_stock").ruleNodeTo("rule_luck_award")
+                    add(RuleTreeNodeLineVO.builder().treeId(100000001).ruleNodeFrom("rule_stock").ruleNodeTo("rule_luck_award")
                                           .ruleLimitType(RuleLimitTypeVO.EQUAL).ruleLimitValue(RuleLogicCheckTypeVO.TAKE_OVER)
                                           .build());
                 }}).build();
 
         // 4. 组装规则树元数据 (RuleTreeVO)
         RuleTreeVO ruleTreeVO = new RuleTreeVO();
-        ruleTreeVO.setTreeId(String.valueOf(100000001));
+        ruleTreeVO.setTreeId(100000001);
         ruleTreeVO.setTreeName("营销活动决策树");
         ruleTreeVO.setTreeDesc("用于处理抽奖过程中的次数锁、库存及兜底逻辑");
         ruleTreeVO.setTreeRootRuleNode("rule_lock"); // 设置根节点
@@ -84,7 +84,7 @@ public class LogicTreeTest {
 
         // 6. 开启引擎并执行测试
         IDecisionTreeEngine treeEngine = defaultTreeFactory.openLogicTree(ruleTreeVO);
-        DefaultTreeFactory.StrategyAwardVO data = treeEngine.process("user_001", 100001L, 100);
+        DefaultTreeFactory.StrategyAwardData data = treeEngine.process("user_001", 100001L, 100);
 
         log.info("决策树执行完成，最终决策奖品：{}", JSON.toJSONString(data));
     }

@@ -19,7 +19,7 @@ import lombok.NoArgsConstructor;
 public class RuleTreeNodeLineVO {
 
     /** 规则树ID：所属决策树的唯一标识 */
-    private String treeId;
+    private Integer treeId;
 
     /** 起始节点：规则执行的源头节点 Key（如：user_level） */
     private String ruleNodeFrom;

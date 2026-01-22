@@ -24,6 +24,6 @@ public interface ILogicTreeNode {
      * 1. ruleLogicCheckType: 决策流转指令（ALLOW-放行至下一节点，TAKE_OVER-接管/终止链路）
      * 2. strategyAwardData: 节点产出的奖励信息（通常在 TAKE_OVER 状态下携带最终奖品）
      */
-    DefaultTreeFactory.TreeActionEntity logic(String userId, Long strategyId, Integer awardId);
+    public DefaultTreeFactory.TreeActionEntity logic(String userId, Long strategyId, Integer awardId, String ruleValue);
 
 }

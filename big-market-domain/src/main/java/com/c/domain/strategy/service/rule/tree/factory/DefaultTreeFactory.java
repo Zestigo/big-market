@@ -5,10 +5,7 @@ import com.c.domain.strategy.model.vo.RuleTreeVO;
 import com.c.domain.strategy.service.rule.tree.ILogicTreeNode;
 import com.c.domain.strategy.service.rule.tree.factory.engine.IDecisionTreeEngine;
 import com.c.domain.strategy.service.rule.tree.factory.engine.impl.DecisionTreeEngine;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import org.springframework.stereotype.Service;
 
 import java.util.Map;
@@ -62,7 +59,7 @@ public class DefaultTreeFactory {
         /** 规则逻辑校验类型（如：接管、放行） */
         private RuleLogicCheckTypeVO ruleLogicCheckType;
         /** 策略奖品数据（当节点产生最终奖励结果时赋值） */
-        private StrategyAwardData strategyAwardData;
+        private StrategyAwardVO strategyAwardVO;
     }
 
     /**
@@ -73,11 +70,22 @@ public class DefaultTreeFactory {
     @Builder
     @AllArgsConstructor
     @NoArgsConstructor
-    public static class StrategyAwardData {
+    public static class StrategyAwardVO {
         /** 抽奖奖品ID */
         private Integer awardId;
         /** 抽奖奖品规则扩展值（如：具体金额、消耗积分数等） */
         private String awardRuleValue;
     }
 
+    @Getter
+    @AllArgsConstructor
+    public enum LogicModel {
+        RULE_LUCK_AWARD("rule_luck_award", "保底抽奖"),
+        RULE_LOCK("rule_lock", "规则锁"),
+        RULE_STOCK("rule_stock", "库存规则"),
+        ;
+
+        private final String code;
+        private final String info;
+    }
 }

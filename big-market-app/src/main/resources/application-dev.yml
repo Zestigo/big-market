@@ -1,7 +1,7 @@
 server:
   port: 8091
 
-# 线程池配置
+# 线程 pool 配置
 thread:
   pool:
     executor:
@@ -12,30 +12,32 @@ thread:
         block-queue-size: 5000
         policy: CallerRunsPolicy
 
-# 数据库配置；启动时配置数据库资源信息
+# 数据库配置
 spring:
   datasource:
+    # 数据源类型
+    type: com.zaxxer.hikari.HikariDataSource
+    driver-class-name: com.mysql.cj.jdbc.Driver
     username: root
     password: 123456
-    # jdbc:mysql 只有一个冒号
-    # 端口必须是 13306 (映射到虚拟机的端口)
     url: jdbc:mysql://192.168.21.130:13306/big_market?useUnicode=true&characterEncoding=utf8&autoReconnect=true&zeroDateTimeBehavior=convertToNull&serverTimezone=UTC&useSSL=false
-    driver-class-name: com.mysql.cj.jdbc.Driver
-  hikari:
-    pool-name: Retail_HikariCP
-    minimum-idle: 15 #最小空闲连接数量
-    idle-timeout: 180000 #空闲连接存活最大时间，默认600000（10分钟）
-    maximum-pool-size: 25 #连接池最大连接数，默认是10
-    auto-commit: true  #此属性控制从池返回的连接的默认自动提交行为,默认值：true
-    max-lifetime: 1800000 #此属性控制池中连接的最长生命周期，值0表示无限生命周期，默认1800000即30分钟
-    connection-timeout: 30000 #数据库连接超时时间,默认30秒，即30000
-    connection-test-query: SELECT 1
-  type: com.zaxxer.hikari.HikariDataSource
 
-# MyBatis 配置【如需使用记得打开】
+    # hikari 必须是 datasource 的子属性
+    hikari:
+      pool-name: Retail_HikariCP
+      minimum-idle: 15
+      maximum-pool-size: 25
+      idle-timeout: 180000
+      max-lifetime: 1800000
+      connection-timeout: 30000
+      auto-commit: true
+      connection-test-query: SELECT 1
+
+# MyBatis 配置
 mybatis:
   mapper-locations: classpath:/mybatis/mapper/*.xml
   config-location: classpath:/mybatis/config/mybatis-config.xml
+
 # Redis 配置
 redis:
   sdk:
@@ -51,8 +53,10 @@ redis:
       ping-interval: 60000
       keep-alive: true
 
-# 日志
+# 日志配置
 logging:
   level:
     root: info
+    # 建议开启 dao 层的 debug 日志，方便排查 SQL 问题
+    com.c.infrastructure.adapter.repository: debug
   config: classpath:logback-spring.xml

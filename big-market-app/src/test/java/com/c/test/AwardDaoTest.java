@@ -2,7 +2,7 @@ package com.c.test;
 
 import com.alibaba.fastjson.JSON;
 import com.c.infrastructure.dao.IAwardDao;
-import com.c.infrastructure.dao.po.Award;
+import com.c.infrastructure.po.Award;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.Test;
 import org.junit.runner.RunWith;

@@ -2,6 +2,7 @@ package com.c.domain.strategy.service.rule.chain.impl;
 
 import com.c.domain.strategy.repository.IStrategyRepository;
 import com.c.domain.strategy.service.rule.chain.AbstractLogicChain;
+import com.c.domain.strategy.service.rule.chain.factory.DefaultChainFactory;
 import com.c.domain.strategy.service.rule.filter.factory.DefaultLogicFactory;
 import com.c.types.common.Constants;
 import lombok.extern.slf4j.Slf4j;
@@ -26,7 +27,7 @@ public class BlackListLogicChain extends AbstractLogicChain {
     private IStrategyRepository strategyRepository;
 
     @Override
-    public Integer logic(String userId, Long strategyId) {
+    public DefaultChainFactory.StrategyAwardVO logic(String userId, Long strategyId) {
         String ruleModel = ruleModel();
         log.info("抽奖责任链-黑名单处理开始 userId: {}, strategyId: {}, ruleModel: {}", userId, strategyId, ruleModel);
 
@@ -46,7 +47,7 @@ public class BlackListLogicChain extends AbstractLogicChain {
         for (String blackUserId : blackListUsers) {
             if (userId.equals(blackUserId)) {
                 log.info("抽奖责任链-黑名单命中，直接返回接管奖品 userId: {}, strategyId: {}, awardId: {}", userId, strategyId, awardId);
-                return awardId;
+                return DefaultChainFactory.StrategyAwardVO.builder().awardId(awardId).logicModel(ruleModel()).build();
             }
         }
 
@@ -57,6 +58,6 @@ public class BlackListLogicChain extends AbstractLogicChain {
 
     @Override
     protected String ruleModel() {
-        return DefaultLogicFactory.LogicModel.RULE_BLACKLIST.getCode();
+        return DefaultChainFactory.LogicModel.RULE_BLACKLIST.getCode();
     }
 }

@@ -37,7 +37,8 @@ public abstract class AbstractRaffleStrategy implements IRaffleStrategy, IRaffle
     protected final DefaultChainFactory defaultChainFactory;
     protected final DefaultTreeFactory defaultTreeFactory;
 
-    public AbstractRaffleStrategy(IStrategyRepository strategyRepository, IStrategyDispatch strategyDispatch,
+    public AbstractRaffleStrategy(IStrategyRepository strategyRepository,
+                                  IStrategyDispatch strategyDispatch,
                                   DefaultChainFactory defaultChainFactory,
                                   DefaultTreeFactory defaultTreeFactory) {
         this.strategyRepository = strategyRepository;
@@ -71,17 +72,25 @@ public abstract class AbstractRaffleStrategy implements IRaffleStrategy, IRaffle
         log.info("抽奖策略计算-责任链 {} {} {} {}", userId, strategyId, awardId, chainStrategyAwardVO.getLogicModel());
         if (!chainStrategyAwardVO.getLogicModel()
                                  .equals(DefaultChainFactory.LogicModel.RULE_DEFAULT.getCode())) {
-            return RaffleAwardEntity.builder().awardId(awardId).build();
+            // TODO
+            return buildRaffleAwardEntity(strategyId, awardId, null);
         }
 
         DefaultTreeFactory.StrategyAwardVO treeStrategyAwardVO = raffleLogicTree(userId, strategyId, awardId);
         awardId = treeStrategyAwardVO.getAwardId();
         log.info("抽奖策略计算-规则树 {} {} {} {}", userId, strategyId, awardId,
                 treeStrategyAwardVO.getAwardRuleValue());
-        return RaffleAwardEntity.builder().awardId(awardId)
-                                .awardConfig(treeStrategyAwardVO.getAwardRuleValue()).build();
+        return buildRaffleAwardEntity(strategyId, awardId, treeStrategyAwardVO.getAwardRuleValue());
     }
-      /**
+
+    private RaffleAwardEntity buildRaffleAwardEntity(Long strategyId, Integer awardId, String awaraConfig) {
+        StrategyAwardEntity strategyAwardEntity = strategyRepository.queryStrategyAwardEntity(strategyId,
+                awardId);
+        return RaffleAwardEntity.builder().awardId(awardId).awardConfig(awaraConfig)
+                                .sort(strategyAwardEntity.getSort()).build();
+    }
+
+    /**
      * 抽奖计算，责任链抽象方法
      *
      * @param userId     用户ID

@@ -1,6 +1,16 @@
 server:
   port: 8091
+  tomcat:
+    threads:
+      max: 200        # 设定处理客户请求的线程的最大数目，决定了服务器可以同时响应客户请求的数,默认200
+      min-spare: 50   # 初始化线程数,最小空闲线程数,默认是10
+    accept-count: 10  # 等待队列长度
 
+app:
+  config:
+    api-version: v1
+    # 跨域，开发阶段可设置为* 不限制
+    cross-origin: '*'
 # 线程 pool 配置
 thread:
   pool:

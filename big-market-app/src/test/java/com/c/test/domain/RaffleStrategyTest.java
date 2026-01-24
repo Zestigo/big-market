@@ -10,9 +10,7 @@ import com.c.domain.strategy.service.armory.IStrategyArmory;
 import com.c.domain.strategy.service.rule.chain.impl.RuleWeightLogicChain;
 import com.c.domain.strategy.service.rule.tree.impl.RuleLockLogicTreeNode;
 import com.c.infrastructure.dao.IRuleTreeNodeDao;
-import com.c.infrastructure.po.RuleTreeNode;
 import lombok.extern.slf4j.Slf4j;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -21,7 +19,6 @@ import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import javax.annotation.Resource;
-import java.util.List;
 import java.util.concurrent.CountDownLatch;
 
 /**

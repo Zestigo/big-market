@@ -116,7 +116,8 @@ public class DecisionTreeEngine implements IDecisionTreeEngine {
         }
 
         // 若配置了连线但根据当前结果找不到匹配路径，说明配置不完整或逻辑出现了非预期的闭环
-        throw new RuntimeException("决策树配置异常：未找到匹配的路径连线。路径输出值：" + matterValue);
+        log.warn("决策树配置异常：未找到匹配的路径连线。路径输出值：" + matterValue);
+        return null;
     }
 
     /**

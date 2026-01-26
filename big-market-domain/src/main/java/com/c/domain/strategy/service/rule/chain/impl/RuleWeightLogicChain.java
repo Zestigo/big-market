@@ -4,7 +4,6 @@ import com.c.domain.strategy.repository.IStrategyRepository;
 import com.c.domain.strategy.service.armory.IStrategyDispatch;
 import com.c.domain.strategy.service.rule.chain.AbstractLogicChain;
 import com.c.domain.strategy.service.rule.chain.factory.DefaultChainFactory;
-import com.c.domain.strategy.service.rule.filter.factory.DefaultLogicFactory;
 import com.c.types.common.Constants;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -68,13 +67,16 @@ public class RuleWeightLogicChain extends AbstractLogicChain {
         }
 
         // 3. 匹配算法：在已配置的权重 Key 中，筛选出 <= userScore 的集合，并取其中的最大值
-        Long matchedKey = ruleValueMap.keySet().stream().filter(key -> userScore >= key).max(Long::compare).orElse(null);
+        Long matchedKey = ruleValueMap.keySet().stream().filter(key -> userScore >= key).max(Long::compare)
+                                      .orElse(null);
 
         // 4. 判定匹配结果：若命中档位，则执行该权重等级下的独立抽奖，并【接管】责任链流程
         if (null != matchedKey) {
             Integer awardId = strategyDispatch.getRandomAwardId(strategyId, ruleValueMap.get(matchedKey));
-            log.info("抽奖责任链-权重匹配成功 userId: {}, strategyId: {}, 命中档位: {}, 产出奖品ID: {}", userId, strategyId, matchedKey, awardId);
-            return DefaultChainFactory.StrategyAwardVO.builder().awardId(awardId).logicModel(ruleModel()).build();
+            log.info("抽奖责任链-权重匹配成功 userId: {}, strategyId: {}, 命中档位: {}, 产出奖品ID: {}", userId, strategyId,
+                    matchedKey, awardId);
+            return DefaultChainFactory.StrategyAwardVO.builder().awardId(awardId).logicModel(ruleModel())
+                                                      .build();
         }
 
         // 5. 边界处理：用户积分未达到任何最低权重门槛，放行流转至后续通用抽奖逻辑

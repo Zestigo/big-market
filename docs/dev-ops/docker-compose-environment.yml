@@ -1,5 +1,4 @@
-# 命令执行 docker-compose -f docker-compose-environment-aliyun.yml up -d
-# docker 代理和使用文档；https://bugstack.cn/md/road-map/docker.html
+# 命令执行 docker-compose -f docker-compose-environment.yml up -d
 version: '3.9'
 services:
   mysql:
@@ -10,6 +9,10 @@ services:
     environment:
       TZ: Asia/Shanghai
       MYSQL_ROOT_PASSWORD: 123456
+    networks:
+      - my-network
+    depends_on:
+      - mysql-job-dbdata
     ports:
       - "13306:3306"
     volumes:
@@ -20,8 +23,15 @@ services:
       timeout: 10s
       retries: 10
       start_period: 15s
-    networks:
-      - my-network
+    volumes_from:
+      - mysql-job-dbdata
+
+  # 自动加载数据
+  mysql-job-dbdata:
+    image: alpine:3.18.2
+    container_name: mysql-job-dbdata
+    volumes:
+      - /var/lib/mysql
 
   # phpmyadmin https://hub.docker.com/_/phpmyadmin
   phpmyadmin:

@@ -2,4 +2,7 @@ spring:
   config:
     name: big-market-app
   profiles:
-    active: dev
+    # 代码离开了 Windows 开发环境（localhost），
+    # 跑在了虚拟机（Docker）或者云服务器上，从流程上来说，就是在进行“线上部署”。
+    active: dev # 线上环境 (prod)；线下环境 (dev)
+

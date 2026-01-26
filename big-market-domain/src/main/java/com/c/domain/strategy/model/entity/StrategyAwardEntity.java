@@ -16,4 +16,7 @@ public class StrategyAwardEntity {
         private Integer awardCount; // 奖项总数量（比如一等奖总共10个）
         private Integer awardCountSurplus; // 奖项剩余数量（比如一等奖还剩3个）
         private BigDecimal awardRate; // 奖项概率（比如0.05=5%中奖概率）
+        private Integer sort; // 奖项概率（比如0.05=5%中奖概率）
+        private String awardTitle;
+        private String awardSubtitle;
 }

@@ -50,4 +50,5 @@ public interface IStrategyAwardDao {
      */
     void updateStrategyAwardStock(StrategyAward strategyAward);
 
+    StrategyAward queryStrategyAwardEntity(StrategyAward strategyAward);
 }

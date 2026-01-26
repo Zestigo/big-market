@@ -1,4 +1,0 @@
-26-01-18.10:58:00.826 [main            ] WARN  DefaultRaffleStrategy  - 【警告】未找到对应的规则过滤器实现，请检查配置或代码注入: rule_blacklist,rule_weight
-26-01-18.11:04:25.438 [main            ] WARN  DefaultRaffleStrategy  - 【警告】未找到对应的规则过滤器实现，请检查配置或代码注入: rule_blacklist,rule_weight
-26-01-18.11:09:00.417 [main            ] WARN  DefaultRaffleStrategy  - 【警告】未找到对应的规则过滤器实现，请检查配置或代码注入: rule_blacklist,rule_weight
-26-01-18.11:10:17.958 [main            ] WARN  DefaultRaffleStrategy  - 【警告】未找到对应的规则过滤器实现，请检查配置或代码注入: rule_blacklist,rule_weight

@@ -3,7 +3,6 @@ package com.c.domain.strategy.service.rule.chain.impl;
 import com.c.domain.strategy.repository.IStrategyRepository;
 import com.c.domain.strategy.service.rule.chain.AbstractLogicChain;
 import com.c.domain.strategy.service.rule.chain.factory.DefaultChainFactory;
-import com.c.domain.strategy.service.rule.filter.factory.DefaultLogicFactory;
 import com.c.types.common.Constants;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;

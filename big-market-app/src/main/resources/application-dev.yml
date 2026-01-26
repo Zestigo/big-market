@@ -1,72 +1,157 @@
+# ========================= 服务器基础配置 =========================
 server:
-  port: 8091
+  port: 8091                # 应用服务监听端口
   tomcat:
     threads:
-      max: 200        # 设定处理客户请求的线程的最大数目，决定了服务器可以同时响应客户请求的数,默认200
-      min-spare: 50   # 初始化线程数,最小空闲线程数,默认是10
-    accept-count: 10  # 等待队列长度
+      max: 200              # Tomcat最大工作线程数（处理请求的线程上限）
+      min-spare: 50         # Tomcat最小空闲线程数（保持活跃的基础线程数，避免频繁创建销毁）
+    accept-count: 10        # Tomcat请求队列长度（线程池满时，临时排队的请求数）
 
+# ========================= 应用自定义配置 =========================
 app:
   config:
-    api-version: v1
-    # 跨域，开发阶段可设置为* 不限制
-    cross-origin: '*'
-# 线程 pool 配置
+    api-version: v1         # 接口版本号（用于接口版本管理）
+    cross-origin: '*'       # 跨域配置（允许所有域名跨域访问，生产环境建议指定具体域名）
+
+# ========================= 自定义线程池配置 =========================
 thread:
   pool:
     executor:
       config:
-        core-pool-size: 20
-        max-pool-size: 50
-        keep-alive-time: 5000
-        block-queue-size: 5000
-        policy: CallerRunsPolicy
+        core-pool-size: 20          # 核心线程数（线程池常驻线程数）
+        max-pool-size: 50           # 最大线程数（线程池允许创建的最大线程数）
+        keep-alive-time: 5000       # 非核心线程空闲存活时间（单位：毫秒）
+        block-queue-size: 5000      # 任务阻塞队列容量（核心线程满时，任务排队的最大数量）
+        policy: CallerRunsPolicy   # 拒绝策略（队列满且线程数达上限时，由调用方线程执行任务）
 
-# 数据库配置
+# ========================= Spring核心配置 =========================
 spring:
-  datasource:
-    # 数据源类型
-    type: com.zaxxer.hikari.HikariDataSource
-    driver-class-name: com.mysql.cj.jdbc.Driver
-    username: root
-    password: 123456
-    url: jdbc:mysql://192.168.21.130:13306/big_market?useUnicode=true&characterEncoding=utf8&autoReconnect=true&zeroDateTimeBehavior=convertToNull&serverTimezone=UTC&useSSL=false
+  main:
+    # 允许Bean定义覆盖（解决不同配置类中同名Bean的冲突问题，谨慎使用）
+    allow-bean-definition-overriding: true
 
-    # hikari 必须是 datasource 的子属性
-    hikari:
-      pool-name: Retail_HikariCP
-      minimum-idle: 15
-      maximum-pool-size: 25
-      idle-timeout: 180000
-      max-lifetime: 1800000
-      connection-timeout: 30000
-      auto-commit: true
-      connection-test-query: SELECT 1
+  # ========================= 分库分表（ShardingSphere）配置 =========================
+  shardingsphere:
+    # 1. 多数据源配置
+    datasource:
+      names: ds_0,ds_1,big_market  # 数据源名称列表（分库数据源+默认数据源）
+      # 分库数据源01
+      ds_0:
+        type: com.zaxxer.hikari.HikariDataSource  # 数据源类型（HikariCP高性能连接池）
+        driver-class-name: com.mysql.cj.jdbc.Driver  # MySQL驱动类
+        url: jdbc:mysql://192.168.21.130:13306/big_market_01?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false
+        username: root       # 数据库用户名
+        password: 123456     # 数据库密码（生产环境建议通过配置中心/环境变量注入）
+      # 分库数据源02
+      ds_1:
+        type: com.zaxxer.hikari.HikariDataSource
+        driver-class-name: com.mysql.cj.jdbc.Driver
+        url: jdbc:mysql://192.168.21.130:13306/big_market_02?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false
+        username: root
+        password: 123456
+      # 默认数据源（未分片的表使用该数据源）
+      big_market:
+        type: com.zaxxer.hikari.HikariDataSource
+        driver-class-name: com.mysql.cj.jdbc.Driver
+        url: jdbc:mysql://192.168.21.130:13306/big_market?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false
+        username: root
+        password: 123456
 
-# MyBatis 配置
+    # 2. 分库分表规则配置
+    rules:
+      sharding:
+        default-data-source-name: big_market  # 默认数据源（未配置分片规则的表使用）
+        # 分片表配置 - 抽奖活动订单表
+        tables:
+          raffle_activity_order:
+            actual-data-nodes: ds_${0..1}.raffle_activity_order_00${0..3}  # 实际数据节点（2个库×4张表）
+            # 分库策略（按user_id分片）
+            database-strategy:
+              standard:
+                sharding-column: user_id  # 分片键（用户ID）
+                sharding-algorithm-name: sys_user_db_alg  # 分库算法名称
+            # 分表策略（按user_id分片）
+            table-strategy:
+              standard:
+                sharding-column: user_id  # 分片键（用户ID）
+                sharding-algorithm-name: sys_user_tbl_alg  # 分表算法名称
+
+          # 分片表配置 - 抽奖活动账户流水表
+          raffle_activity_account_flow:
+            actual-data-nodes: ds_${0..1}.raffle_activity_account_flow_00${0..3}  # 实际数据节点（2个库×4张表）
+            # 分库策略（按user_id分片）
+            database-strategy:
+              standard:
+                sharding-column: user_id
+                sharding-algorithm-name: sys_user_db_alg
+            # 分表策略（按user_id分片）
+            table-strategy:
+              standard:
+                sharding-column: user_id
+                sharding-algorithm-name: sys_user_tbl_alg
+
+        # 分片算法配置
+        sharding-algorithms:
+          # 分库算法（基于用户ID的自定义分片算法）
+          sys_user_db_alg:
+            type: CLASS_BASED  # 算法类型（自定义类实现）
+            props:
+              strategy: STANDARD  # 标准分片策略
+              algorithmClassName: com.c.types.common.MyDatabaseAlgorithm  # 分库算法实现类
+          # 分表算法（基于用户ID的自定义分片算法）
+          sys_user_tbl_alg:
+            type: CLASS_BASED  # 算法类型（自定义类实现）
+            props:
+              strategy: STANDARD  # 标准分片策略
+              algorithmClassName: com.c.types.common.MyTableAlgorithm  # 分表算法实现类
+
+    # 3. ShardingSphere属性配置
+    props:
+      sql-show: true  # 打印分片后的SQL语句（开发环境开启，生产环境建议关闭）
+
+# ========================= MyBatis配置 =========================
 mybatis:
-  mapper-locations: classpath:/mybatis/mapper/*.xml
-  config-location: classpath:/mybatis/config/mybatis-config.xml
+  mapper-locations: classpath:/mybatis/mapper/*.xml  # Mapper映射文件路径
+  config-location: classpath:/mybatis/config/mybatis-config.xml  # MyBatis核心配置文件路径
 
-# Redis 配置
+# ========================= Redis配置 =========================
 redis:
   sdk:
     config:
-      host: 192.168.21.130
-      port: 16379
-      pool-size: 10
-      min-idle-size: 5
-      idle-timeout: 30000
-      connect-timeout: 5000
-      retry-attempts: 3
-      retry-interval: 1000
-      ping-interval: 60000
-      keep-alive: true
+      host: 192.168.21.130      # Redis服务器地址
+      port: 16379               # Redis端口
+      pool-size: 10             # 连接池最大连接数
+      min-idle-size: 5          # 连接池最小空闲连接数
+      connect-timeout: 5000     # 连接超时时间（单位：毫秒）
+      retry-attempts: 3         # 连接失败重试次数
 
-# 日志配置
+# ========================= 日志配置 =========================
 logging:
   level:
-    root: info
-    # 建议开启 dao 层的 debug 日志，方便排查 SQL 问题
-    com.c.infrastructure.adapter.repository: debug
-  config: classpath:logback-spring.xml
+    root: info  # 根日志级别
+    org.springframework.test: info  # Spring测试模块日志级别（屏蔽无用DEBUG日志）
+    com.c.infrastructure.adapter.repository: debug  # 数据访问层日志级别（便于调试SQL）
+    org.apache.shardingsphere: info  # 分库分表框架日志级别
+  config: classpath:logback-spring.xml  # 日志配置文件路径（Logback）
+
+# ========================= 数据库配置（单库模式） =========================
+# 当前使用分库分表模式，此单库配置暂注释；如需切换为单库模式，可启用此配置并注释ShardingSphere相关配置
+#spring:
+#  datasource:
+#    # 数据源类型（HikariCP高性能连接池）
+#    type: com.zaxxer.hikari.HikariDataSource
+#    driver-class-name: com.mysql.cj.jdbc.Driver  # MySQL驱动类
+#    username: root                               # 数据库用户名
+#    password: 123456                             # 数据库密码
+#    url: jdbc:mysql://192.168.21.130:113306/big_market?useUnicode=true&characterEncoding=utf8&autoReconnect=true&zeroDateTimeBehavior=convertToNull&serverTimezone=UTC&useSSL=false
+#
+#    # HikariCP连接池配置（必须作为datasource的子属性）
+#    hikari:
+#      pool-name: Retail_HikariCP       # 连接池名称
+#      minimum-idle: 15                 # 最小空闲连接数
+#      maximum-pool-size: 25            # 最大连接数
+#      idle-timeout: 180000             # 空闲连接超时时间（单位：毫秒）
+#      max-lifetime: 1800000            # 连接最大生命周期（单位：毫秒）
+#      connection-timeout: 30000        # 连接获取超时时间（单位：毫秒）
+#      auto-commit: true                # 自动提交事务
+#      connection-test-query: SELECT 1  # 连接有效性检测SQL

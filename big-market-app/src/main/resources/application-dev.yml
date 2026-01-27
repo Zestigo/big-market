@@ -60,50 +60,46 @@ spring:
     # 2. 分库分表规则配置
     rules:
       sharding:
-        default-data-source-name: big_market  # 默认数据源（未配置分片规则的表使用）
-        # 分片表配置 - 抽奖活动订单表
-        tables:
-          raffle_activity_order:
-            actual-data-nodes: ds_${0..1}.raffle_activity_order_00${0..3}  # 实际数据节点（2个库×4张表）
-            # 分库策略（按user_id分片）
-            database-strategy:
-              standard:
-                sharding-column: user_id  # 分片键（用户ID）
-                sharding-algorithm-name: sys_user_db_alg  # 分库算法名称
-            # 分表策略（按user_id分片）
-            table-strategy:
-              standard:
-                sharding-column: user_id  # 分片键（用户ID）
-                sharding-algorithm-name: sys_user_tbl_alg  # 分表算法名称
+        default-data-source-name: big_market
 
-          # 分片表配置 - 抽奖活动账户流水表
-          raffle_activity_account_flow:
-            actual-data-nodes: ds_${0..1}.raffle_activity_account_flow_00${0..3}  # 实际数据节点（2个库×4张表）
-            # 分库策略（按user_id分片）
+        tables:
+
+          # ================== 抽奖订单表（分库 + 分表） ==================
+          raffle_activity_order:
+            actual-data-nodes: ds_${0..1}.raffle_activity_order_00${0..3}
+
             database-strategy:
               standard:
                 sharding-column: user_id
                 sharding-algorithm-name: sys_user_db_alg
-            # 分表策略（按user_id分片）
+
             table-strategy:
               standard:
                 sharding-column: user_id
                 sharding-algorithm-name: sys_user_tbl_alg
 
+          # ================== 抽奖账户表（仅分库，不分表） ==================
+          raffle_activity_account:
+            actual-data-nodes: ds_${0..1}.raffle_activity_account
+
+            database-strategy:
+              standard:
+                sharding-column: user_id
+                sharding-algorithm-name: sys_user_db_alg
+
         # 分片算法配置
         sharding-algorithms:
-          # 分库算法（基于用户ID的自定义分片算法）
           sys_user_db_alg:
-            type: CLASS_BASED  # 算法类型（自定义类实现）
+            type: CLASS_BASED
             props:
-              strategy: STANDARD  # 标准分片策略
-              algorithmClassName: com.c.types.common.MyDatabaseAlgorithm  # 分库算法实现类
-          # 分表算法（基于用户ID的自定义分片算法）
+              strategy: STANDARD
+              algorithmClassName: com.c.types.common.MyDatabaseAlgorithm
+
           sys_user_tbl_alg:
-            type: CLASS_BASED  # 算法类型（自定义类实现）
+            type: CLASS_BASED
             props:
-              strategy: STANDARD  # 标准分片策略
-              algorithmClassName: com.c.types.common.MyTableAlgorithm  # 分表算法实现类
+              strategy: STANDARD
+              algorithmClassName: com.c.types.common.MyTableAlgorithm
 
     # 3. ShardingSphere属性配置
     props:

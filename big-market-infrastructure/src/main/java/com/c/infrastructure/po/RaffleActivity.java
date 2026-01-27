@@ -32,15 +32,6 @@ public class RaffleActivity {
     /** 活动结束时间 */
     private Date endDateTime;
 
-    /** 活动总库存（决定了该活动最多发出的总抽奖次数） */
-    private Integer stockCount;
-
-    /** 剩余库存（实时扣减，用于活动维度的超卖控制） */
-    private Integer stockCountSurplus;
-
-    /** 活动参与次数配置ID（关联 RaffleActivityCount 表） */
-    private Long activityCountId;
-
     /** 抽奖策略ID（关联 Strategy 表，定义具体怎么抽奖） */
     private Long strategyId;
 

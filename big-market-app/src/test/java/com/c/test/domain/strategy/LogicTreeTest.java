@@ -1,4 +1,4 @@
-package com.c.test.domain;
+package com.c.test.domain.strategy;
 
 import com.alibaba.fastjson2.JSON;
 import com.c.domain.strategy.model.vo.*;

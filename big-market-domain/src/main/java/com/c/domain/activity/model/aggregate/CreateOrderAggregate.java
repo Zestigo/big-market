@@ -1,6 +1,5 @@
 package com.c.domain.activity.model.aggregate;
 
-import com.c.domain.activity.model.entity.ActivityAccountEntity;
 import com.c.domain.activity.model.entity.ActivityOrderEntity;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -9,9 +8,10 @@ import lombok.NoArgsConstructor;
 
 /**
  * @author cyh
- * @description 创建订单聚合对象
- * 1. 聚合职责：该聚合将“抽奖活动订单”与“用户活动账户”包装在一起，确保在创建订单的同时，能够同步更新或校验账户状态。
- * 2. 事务一致性：在领域服务或仓储实现中，该聚合通常作为一个整体进行持久化，保证订单的产生和账户余额（次数）的扣减处于同一个事务中。
+ * @description 创建活动参与订单聚合对象
+ * 1. 职责定义：将“活动流水订单”与“账户额度变更”封装为原子操作。在用户通过 SKU 充值或领取资格时，
+ * 该聚合对象承载了产生新订单以及对应账户次数增加的全部上下文。
+ * 2. 事务一致性：仓储层在处理此聚合时，应在同一个数据库事务内完成 ActivityOrder 表的插入和 ActivityAccount 表的额度更新。
  * @date 2026/01/27
  */
 @Data
@@ -21,16 +21,36 @@ import lombok.NoArgsConstructor;
 public class CreateOrderAggregate {
 
     /**
-     * 用户抽奖活动账户实体
-     * 包含用户在该活动下的总剩余次数、日剩余次数、月剩余次数等。
-     * 在创建订单时，需要通过该实体校验用户是否有足够的参与资格，并进行次数扣减。
+     * 用户唯一标识
      */
-    private ActivityAccountEntity activityAccountEntity;
+    private String userId;
 
     /**
-     * 活动抽奖订单实体
-     * 记录本次参与活动的流水信息，包括订单 ID、用户 ID、SKU 信息、活动 ID 以及订单状态等。
-     * 是用户参与抽奖资格的凭证。
+     * 活动唯一标识
+     */
+    private Long activityId;
+
+    /**
+     * 本次订单应增加的总次数限制
+     * 对应 ActivityCountEntity 中的 totalCount，由 SKU 配置决定。
+     */
+    private Integer totalCount;
+
+    /**
+     * 本次订单应增加的日次数限制
+     * 对应 ActivityCountEntity 中的 dayCount，控制用户当日参与上限。
+     */
+    private Integer dayCount;
+
+    /**
+     * 本次订单应增加的月次数限制
+     * 对应 ActivityCountEntity 中的 monthCount，控制用户单月参与上限。
+     */
+    private Integer monthCount;
+
+    /**
+     * 活动订单流水实体
+     * 记录本次充值/领取的详细流水，包括单号、SKU 信息、状态等。
      */
     private ActivityOrderEntity activityOrderEntity;
 

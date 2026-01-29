@@ -27,8 +27,34 @@ thread:
 # ========================= Spring核心配置 =========================
 spring:
   main:
-    # 允许Bean定义覆盖（解决不同配置类中同名Bean的冲突问题，谨慎使用）
+    # 【Bean覆盖开关】
+    # 当项目中出现两个同名的 Bean 时（比如引入了两个不同的配置包，都定义了名为 redisClient 的 Bean），
+    # 设置为 true 会允许后加载的 Bean 覆盖先加载的。在复杂的 Spring Cloud 或多模块项目中很有用。
     allow-bean-definition-overriding: true
+
+  # ========================= RabbitMQ 消息队列配置 =========================
+  rabbitmq:
+    # RabbitMQ 服务端连接地址，集群环境下可配置多个地址（逗号分隔）
+    addresses: 192.168.21.130
+    # 默认通信端口（AMQP 协议端口）
+    port: 5672
+    # 认证账号和密码
+    username: admin
+    password: admin
+
+    listener:
+      simple:
+        # 【限流配置：预取数量】
+        # 重要性能参数：告诉 MQ 每次只推 1 条消息给当前消费者。
+        # 优势：只有当这一条消息消费完成并回执（Ack）后，MQ 才会发下一条。
+        # 场景：防止在“突发大流量”时，由于处理过慢导致大量消息积压在某个消费者内存中，造成 OOM（内存溢出）。
+        prefetch: 1
+
+    # 【自定义业务主题配置】
+    # 这里的配置会被 @Value("${spring.rabbitmq.topic.activity_sku_stock_zero}") 引用
+    topic:
+      # 活动库存售罄通知的交换机/主题名称
+      activity_sku_stock_zero: activity_sku_stock_zero
 
   # ========================= 分库分表（ShardingSphere）配置 =========================
   shardingsphere:
@@ -129,6 +155,9 @@ logging:
     com.c.infrastructure.adapter.repository: debug  # 数据访问层日志级别（便于调试SQL）
     org.apache.shardingsphere: info  # 分库分表框架日志级别
   config: classpath:logback-spring.xml  # 日志配置文件路径（Logback）
+
+
+
 
 # ========================= 数据库配置（单库模式） =========================
 # 当前使用分库分表模式，此单库配置暂注释；如需切换为单库模式，可启用此配置并注释ShardingSphere相关配置

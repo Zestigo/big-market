@@ -3,6 +3,8 @@ package com.c.infrastructure.redis;
 import com.c.domain.activity.model.entity.ActivitySkuEntity;
 import org.redisson.api.*;
 
+import java.util.concurrent.TimeUnit;
+
 /**
  * Redis 基础设施层接口
  * * 职责：
@@ -16,6 +18,7 @@ public interface IRedisService {
 
     /**
      * 写入基础 KV 数据（String 类型）
+     *
      * @param key   键
      * @param value 对象值（支持 POJO 序列化）
      */
@@ -23,6 +26,7 @@ public interface IRedisService {
 
     /**
      * 写入带过期时间的 KV 数据
+     *
      * @param key     键
      * @param value   值
      * @param expired 过期时长（单位：毫秒）
@@ -31,6 +35,7 @@ public interface IRedisService {
 
     /**
      * 获取指定 Key 的值
+     *
      * @param key 键
      * @return 存储的对象实体
      */
@@ -50,12 +55,12 @@ public interface IRedisService {
     /**
      * 获取延迟队列（Delayed Queue）
      * 业务场景：抽奖库存异步补偿。用户抽奖成功后，消息在延迟队列中等待，到时后自动进入阻塞队列供 Worker 消费。
-     *
      */
     <T> RDelayedQueue<T> getDelayedQueue(RBlockingQueue<T> rBlockingQueue);
 
     /**
      * 原子自增 1
+     *
      * @return 自增后的数值
      */
     long incr(String key);
@@ -181,9 +186,10 @@ public interface IRedisService {
      * 原子设置 Key（分布式锁简易实现）
      * 业务场景：抢占式操作。在库存扣减逻辑中，通过 setNx 确保只有一个请求能处理特定的库存余量位。
      *
-     *
      * @param lockKey 锁标识
      * @return true: 成功获得锁（此前不存在）；false: 获取锁失败
      */
     Boolean setNx(String lockKey);
+
+    Boolean setNx(String key, long expired, TimeUnit timeUnit);
 }

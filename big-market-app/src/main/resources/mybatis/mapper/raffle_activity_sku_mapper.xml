@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="com.c.infrastructure.dao.IRaffleActivitySKUDao">
+<mapper namespace="com.c.infrastructure.dao.IRaffleActivitySkuDao">
 
     <resultMap id="dataMap" type="com.c.infrastructure.po.RaffleActivitySKU">
         <id column="id" property="id"/>
@@ -12,7 +12,9 @@
         <id column="create_time" property="createTime"/>
         <id column="update_time" property="updateTime"/>
     </resultMap>
-    <select id="queryActivitySku" parameterType="java.lang.Long"  resultMap="dataMap">
+
+
+    <select id="queryActivitySku" parameterType="java.lang.Long" resultMap="dataMap">
         select id,
                sku,
                activity_id,
@@ -23,8 +25,21 @@
                update_time
         from raffle_activity_sku
         where sku = #{sku}
-
     </select>
 
+    <update id="updateActivitySkuStock" parameterType="java.lang.Long">
+        update raffle_activity_sku
+        set stock_count_surplus = stock_count_surplus - 1,
+            update_time         = now()
+        where sku = #{sku}
+          and stock_count_surplus > 0
+    </update>
+
+    <update id="clearActivitySkuStock" parameterType="java.lang.Long">
+        update raffle_activity_sku
+        set stock_count_surplus = 0,
+            update_time         = now()
+        where sku = #{sku}
+    </update>
 
 </mapper>

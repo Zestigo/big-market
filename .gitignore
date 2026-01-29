@@ -19,6 +19,12 @@ target/
 build/
 bin/
 out/
+.history/
+.cache/
+node_modules/
+.gradle/
+/build/
+!gradle/wrapper/gradle-wrapper.jar
 
 # =========================================================================
 # 3. 核心源码追踪策略 (重点：确保 src/test 绝对被追踪)
@@ -33,13 +39,20 @@ out/
 !**/src/test/resources/**
 
 # =========================================================================
-# 4. IDE 与 系统文件
+# 4. IDE 与 系统文件 (增强版)
 # =========================================================================
 .idea/
 *.iml
+*.ipr
+*.iws
 .mvn/wrapper/maven-wrapper.jar
 .project
-.settings/
 .classpath
+.factorypath
 .DS_Store
-.docs/
+Thumbs.db
+# 各种编辑器产生的临时文件
+.vscode/
+*.swp
+*.bak
+*.tmp

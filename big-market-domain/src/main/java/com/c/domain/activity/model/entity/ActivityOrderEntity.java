@@ -30,6 +30,11 @@ public class ActivityOrderEntity {
     private Long activityId;
 
     /**
+     * 抽奖策略ID
+     */
+    private Long sku;
+
+    /**
      * 活动名称
      */
     private String activityName;
@@ -48,6 +53,10 @@ public class ActivityOrderEntity {
      * 下单时间
      */
     private Date orderTime;
+    /**
+     * 业务仿重ID - 外部透传的，确保幂等
+     */
+    private String outBusinessNo;
 
     /**
      * 总次数

@@ -134,7 +134,7 @@ public class StrategyRepository implements IStrategyRepository {
 
     @Override
     public StrategyEntity queryStrategyEntityByStrategyId(Long strategyId) {
-        String cacheKey = Constants.RedisKey.STRATEGY_STRATEGY_KEY + strategyId;
+        String cacheKey = Constants.RedisKey.STRATEGY_KEY + strategyId;
         // 1. 优先从缓存获取策略主体配置
         StrategyEntity strategyEntity = redisService.getValue(cacheKey);
         if (null != strategyEntity) return strategyEntity;
@@ -263,7 +263,7 @@ public class StrategyRepository implements IStrategyRepository {
     @Override
     public void awardStockConsumeSendQueue(StrategyAwardStockKeyVO strategyAwardStockKeyVO) {
         // 定义库存消耗队列的 Key
-        String cacheKey = Constants.RedisKey.STRATEGY_AWARD_COUNT_QUEUE_KEY;
+        String cacheKey = Constants.RedisKey.STRATEGY_AWARD_COUNT_QUERY_KEY;
         // 使用 Redisson 的阻塞队列获取任务
         RBlockingQueue<StrategyAwardStockKeyVO> blockingQueue = redisService.getBlockingQueue(cacheKey);
         // 通过延迟队列包装，实现在 3 秒后再将扣减任务放入消费队列，平滑数据库写入压力
@@ -274,7 +274,7 @@ public class StrategyRepository implements IStrategyRepository {
     @Override
     public StrategyAwardStockKeyVO takeQueueValue() {
         // 从 Redis 阻塞队列中弹出一个待处理的库存扣减任务
-        String cacheKey = Constants.RedisKey.STRATEGY_AWARD_COUNT_QUEUE_KEY;
+        String cacheKey = Constants.RedisKey.STRATEGY_AWARD_COUNT_QUERY_KEY;
         RBlockingQueue<StrategyAwardStockKeyVO> blockingQueue = redisService.getBlockingQueue(cacheKey);
         return blockingQueue.poll();
     }

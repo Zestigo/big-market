@@ -1,62 +1,99 @@
 package com.c.domain.activity.service;
 
 import com.alibaba.fastjson.JSON;
+import com.c.domain.activity.model.aggregate.CreateOrderAggregate;
 import com.c.domain.activity.model.entity.*;
 import com.c.domain.activity.repositor.IActivityRepository;
+import com.c.domain.activity.service.rule.IActionChain;
+import com.c.domain.activity.service.rule.factory.DefaultActivityChainFactory;
+import com.c.types.enums.ResponseCode;
+import com.c.types.exception.AppException;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 
 /**
- * @author cyh
  * @description 抽奖活动抽象类
- * 封装了创建抽奖订单的共用标准流程（模板方法模式），具体的业务实现由子类按需扩展。
+ * 1. 职责：定义创建抽奖活动订单的标准模板流程，编排基础信息查询、规则校验、聚合构建及持久化操作。
+ * 2. 设计模式：模板方法模式。通过 {@link #createSkuRechargeOrder} 定义骨架，具体的聚合构建和保存交由子类实现。
+ * 3. 支撑类继承：继承自 {@link RaffleActivitySupport}，获取基础数据的查询能力和规则链工厂支撑。
+ *
+ * @author cyh
  * @date 2026/01/27
  */
 @Slf4j
-public abstract class AbstractRaffleActivity implements IRaffleOrder {
+public abstract class AbstractRaffleActivity extends RaffleActivitySupport implements IRaffleOrder {
 
     /**
-     * 活动领域仓储接口，用于数据的持久化与查询
+     * 构造方法，注入领域仓储与规则链工厂
+     * * @param activityRepository 活动领域仓储接口
+     * @param defaultActivityChainFactory 活动规则责任链工厂
      */
-    protected IActivityRepository activityRepository;
-
-    /**
-     * 构造函数注入仓储实例
-     *
-     * @param activityRepository 活动仓储
-     */
-    public AbstractRaffleActivity(IActivityRepository activityRepository) {
-        this.activityRepository = activityRepository;
+    public AbstractRaffleActivity(IActivityRepository activityRepository,
+                                  DefaultActivityChainFactory defaultActivityChainFactory) {
+        super(activityRepository, defaultActivityChainFactory);
     }
 
     /**
-     * 执行创建抽奖活动订单的通用流程
+     * 执行创建抽奖活动充值订单的模板方法
+     * 该方法锁定了业务执行顺序，确保先校验、后查询、再过滤、最后持久化的原则。
      *
-     * @param activityShopCartEntity 活动购物车实体，包含关键的 SKU 信息
-     * @return ActivityOrderEntity 生成的活动订单实体
+     * @param skuRechargeEntity 活动充值意图实体，包含用户ID、SKU、幂等单号
+     * @return String 返回生成的活动参与订单 ID
+     * @throws AppException 业务异常，如参数错误、规则拦截等
      */
     @Override
-    public ActivityOrderEntity createRaffleActivityOrder(ActivityShopCartEntity activityShopCartEntity) {
-        // 1. 根据传入的 SKU 信息查询活动库存单元（ActivitySkuEntity）
-        // SKU 关联了具体的活动 ID 以及该 SKU 对应的次数配置 ID
-        ActivitySkuEntity activitySkuEntity =
-                activityRepository.queryActivitySku(activityShopCartEntity.getSku());
+    public String createSkuRechargeOrder(SkuRechargeEntity skuRechargeEntity) {
+        // 1. 参数校验：确保基础业务字段不为空，保障后续查询的安全性
+        String userId = skuRechargeEntity.getUserId();
+        Long sku = skuRechargeEntity.getSku();
+        String outBusinessNo = skuRechargeEntity.getOutBusinessNo();
+        if (sku == null || StringUtils.isBlank(userId) || StringUtils.isBlank(outBusinessNo)) {
+            throw new AppException(ResponseCode.ILLEGAL_PARAMETER.getCode(),
+                    ResponseCode.ILLEGAL_PARAMETER.getInfo());
+        }
 
-        // 2. 根据 SKU 中记录的 activityId 查询活动基础信息（ActivityEntity）
-        // 包含活动名称、开始/结束时间、活动状态（开启/关闭）等信息
-        ActivityEntity activityEntity =
-                activityRepository.queryRaffleActivityByActivityId(activitySkuEntity.getActivityId());
+        // 2. 数据查询：通过调用 Support 层方法获取当前活动参与所需的完整领域对象上下文
+        // 2.1 获取 SKU 配置信息（关联活动 ID 与次数 ID）
+        ActivitySkuEntity activitySkuEntity = queryActivitySku(sku);
 
-        // 3. 根据 SKU 中记录的 activityCountId 查询活动的次数配置信息（ActivityCountEntity）
-        // 定义了该活动下，用户总参与次数限制、日参与次数限制、月参与次数限制
-        ActivityCountEntity activityCountEntity =
-                activityRepository.queryRaffleActivityCountByActivityCountId(activitySkuEntity.getActivityCountId());
+        // 2.2 获取活动基础配置（状态、有效期、策略 ID）
+        ActivityEntity activityEntity = queryRaffleActivityByActivityId(activitySkuEntity.getActivityId());
 
-        // 4. 日志记录：详细打印查询到的各个领域实体信息，便于线上排查与追溯
-        log.info("查询抽奖活动配置结果：SKU信息={}, 活动信息={}, 次数配置={}", JSON.toJSONString(activitySkuEntity),
-                JSON.toJSONString(activityEntity), JSON.toJSONString(activityCountEntity));
+        // 2.3 获取次数限制配置（总次数、日/月限额）
+        ActivityCountEntity activityCountEntity = queryRaffleActivityCountByActivityCountId(activitySkuEntity.getActivityCountId());
 
-        // 5. 构建并返回活动订单实体（注：此处后续应补充具体的订单落库逻辑与状态流转）
-        return ActivityOrderEntity.builder().build();
+        // 3. 规则校验：利用责任链模式对当前请求进行业务合规性过滤
+        // 包含：活动状态校验、库存校验、风控校验等。如果校验不通过，内部会抛出异常中断流程。
+        IActionChain actionChain = defaultActivityChainFactory.openActionChain();
+        boolean success = actionChain.action(activitySkuEntity, activityEntity, activityCountEntity);
+
+        // 4. 构建订单聚合对象：由子类根据具体业务场景实现（如不同类型的活动可能有不同的账户处理方式）
+        // 聚合对象确保了订单记录与账户变动在领域模型上的一致性。
+        CreateOrderAggregate createOrderAggregate = buildOrderAggregate(skuRechargeEntity,
+                activitySkuEntity, activityEntity, activityCountEntity);
+
+        // 5. 订单持久化：执行数据库写入操作，将聚合对象中的数据保存至对应表中
+        // 该步骤通常伴随着数据库事务，确保订单与账户数据的原子性更新。
+        doSaveOrder(createOrderAggregate);
+
+        // 6. 返回订单流水单号，完成充值/下单流程
+        log.info("创建抽奖活动订单成功：userId:{} sku:{} orderId:{}",
+                userId, sku, createOrderAggregate.getActivityOrderEntity().getOrderId());
+        return createOrderAggregate.getActivityOrderEntity().getOrderId();
     }
 
+    /**
+     * 构建订单聚合对象（抽象方法，由子类实现）
+     * 职责：将查询到的各种实体进行业务组装，封装进 {@link CreateOrderAggregate} 聚合中。
+     */
+    protected abstract CreateOrderAggregate buildOrderAggregate(SkuRechargeEntity skuRechargeEntity,
+                                                                ActivitySkuEntity activitySkuEntity,
+                                                                ActivityEntity activityEntity,
+                                                                ActivityCountEntity activityCountEntity);
+
+    /**
+     * 保存订单及相关账户操作（抽象方法，由子类实现）
+     * 职责：对接基础设施层，完成数据的落库存储。
+     */
+    protected abstract void doSaveOrder(CreateOrderAggregate createOrderAggregate);
 }

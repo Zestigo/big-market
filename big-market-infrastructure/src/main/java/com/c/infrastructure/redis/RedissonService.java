@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
 import java.time.Duration;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Redis 公共服务实现类 - 基于 Redisson 客户端
@@ -273,5 +274,29 @@ public class RedissonService implements IRedisService {
     public Boolean setNx(String key) {
         // 使用 setIfAbsent 配合过期时间，确保锁的原子性与安全性
         return redissonClient.getBucket(key).setIfAbsent("lock", Duration.ofSeconds(30));
+    }
+
+    /**
+     * 分布式锁/原子占位实现
+     *
+     * @param key      锁的唯一标识（通常是业务 ID 或特定操作名）
+     * @param expired  过期数值
+     * @param timeUnit 时间单位（秒、毫秒等）
+     * @return true-成功获取锁/占位成功；false-锁已被占用/占位失败
+     */
+    @Override
+    public Boolean setNx(String key, long expired, TimeUnit timeUnit) {
+        // 1. 【单位转换】将传入的各种时间单位（如：秒、分钟）统一转换为毫秒。
+        // 这样做可以适配 Java 8 的 Duration API，同时保证在不同单位下计算的精确度。
+        long millis = timeUnit.toMillis(expired);
+
+        // 2. 调用 Redisson 的 setIfAbsent 方法。
+        // 该方法封装了 Redis 的原子指令：SET key value NX PX milliseconds
+        // - NX (Not eXists): 只有当 Key 不存在时才执行设置操作（即“占坑”）。
+        // - PX: 设置以毫秒为单位的过期时间。
+        //
+        // 注意：这里使用 java.time.Duration.ofMillis(millis) 是为了适配 Redisson 的新版 API，
+        // 同时也解决了旧版本 trySet 方法被弃用（Deprecated）的问题。
+        return redissonClient.getBucket(key).setIfAbsent("lock", Duration.ofMillis(millis));
     }
 }

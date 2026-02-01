@@ -276,6 +276,12 @@ public class RedissonService implements IRedisService {
         return redissonClient.getBucket(key).setIfAbsent("lock", Duration.ofSeconds(30));
     }
 
+    @Override
+    public <T> void setValue(String key, T value, long timeout, TimeUnit timeUnit) {
+        // 使用 Duration.ofMillis 将时间统一转换
+        // Redisson 的新版 API 推荐这样调用，避免了单位混淆
+        redissonClient.getBucket(key).set(value, Duration.ofMillis(timeUnit.toMillis(timeout)));
+    }
     /**
      * 分布式锁/原子占位实现
      *

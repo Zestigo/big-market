@@ -25,10 +25,13 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 /**
- * 策略领域仓储实现服务
- * 职责：负责策略相关数据的持久化、缓存管理及领域模型与数据库对象的转换
- * * @author cyh
+ * 策略领域仓储实现服务 (Strategy Domain Repository Implementation)
+ * 职责定位：
+ * 1. 数据防腐与转换：在基础设施层屏蔽数据库 (MySQL) 与缓存 (Redis) 的技术细节，将持久化对象 (PO) 转化为领域实体 (Entity)。
+ * 2. 状态管理：维护抽奖策略的内存镜像、概率查找表以及库存计数器。
+ * 3. 异步链路衔接：负责库存扣减流水的入队，支撑 Redis 预扣减与 DB 最终一致性的异步解耦。
  *
+ * @author cyh
  * @date 2026/01/20
  */
 @Slf4j
@@ -50,22 +53,29 @@ public class StrategyRepository implements IStrategyRepository {
     @Resource
     private IRuleTreeNodeLineDao ruleTreeNodeLineDao;
 
+    /**
+     * 查询策略关联的奖品列表
+     * 业务逻辑：
+     * 1. 优先检索 Redis 缓存，以支撑高并发下的活动配置读取。
+     * 2. 缓存未命中时，访问数据库并进行 PO 到 Entity 的 Builder 模式转换。
+     * 3. 将结果回写缓存，确保后续请求的响应性能。
+     *
+     * @param strategyId 策略ID
+     * @return 奖品领域实体列表
+     */
     @Override
     public List<StrategyAwardEntity> queryStrategyAwardList(Long strategyId) {
-        // 构建缓存Key，用于快速获取该策略下的所有奖品配置
+        // 构建缓存键：strategy_award_list_key:策略ID
         String cacheKey = Constants.RedisKey.STRATEGY_AWARD_LIST_KEY + strategyId;
 
-        // 步骤1：尝试从 Redis 获取缓存数据，减少数据库负载
+        // 步骤1：尝试从分布式缓存中直接获取已序列化的领域实体
         List<StrategyAwardEntity> strategyAwardEntities = redisService.getValue(cacheKey);
-        if (null != strategyAwardEntities && !strategyAwardEntities.isEmpty()) {
-            return strategyAwardEntities;
-        }
+        if (null != strategyAwardEntities && !strategyAwardEntities.isEmpty()) return strategyAwardEntities;
 
-        // 步骤2：缓存未命中，从数据库查询持久化对象 (PO)
+        // 步骤2：缓存失效，从物理库加载持久化配置对象
         List<StrategyAward> strategyAwards = strategyAwardDao.queryStrategyAwardListByStrategyId(strategyId);
 
-        // 步骤3：将数据库 PO 转换为领域层 Entity。
-        // 这样做是为了防止底层表结构变化直接影响业务逻辑，实现层级隔离。
+        // 步骤3：模型映射转换，将数据库字段映射为领域层可见的业务属性
         strategyAwardEntities = new ArrayList<>(strategyAwards.size());
         for (StrategyAward strategyAward : strategyAwards) {
             StrategyAwardEntity strategyAwardEntity = StrategyAwardEntity.builder()
@@ -81,26 +91,39 @@ public class StrategyRepository implements IStrategyRepository {
             strategyAwardEntities.add(strategyAwardEntity);
         }
 
-        // 步骤4：将转换后的实体列表写回 Redis，供下次查询直接使用
+        // 步骤4：刷新缓存，实现数据的“懒加载”同步
         redisService.setValue(cacheKey, strategyAwardEntities);
 
         return strategyAwardEntities;
     }
 
+    /**
+     * 存储抽奖概率查找映射表（装配阶段关键步骤）
+     * 核心设计：将概率计算转化为 O(1) 的索引查找，解决复杂区间计算在高并发下的性能瓶颈。
+     *
+     * @param key 策略装配标识
+     * @param rateRange 概率分母（随机数上限，如 10000）
+     * @param shuffleStrategyAwardSearchRateTables 打乱后的奖品 ID 分布映射（随机位 -> 奖品ID）
+     */
     @Override
     public void storeStrategyAwardSearchRateTable(String key, Integer rateRange,
                                                   Map<Integer, Integer> shuffleStrategyAwardSearchRateTables) {
-        // 1. 存储本策略抽奖时随机数的上限（范围值），如 10000 对应万分位精度
+        // 1. 记录本策略的随机数寻址范围
         redisService.setValue(Constants.RedisKey.STRATEGY_RATE_RANGE_KEY + key, rateRange);
 
-        // 2. 获取 Redis 中的 Hash 结构映射表
-        // 这一步是为了将打乱后的奖品分布 [随机位 -> 奖品ID] 存入 Redis Hash。
-        // 使用 Hash 结构可以实现在抽奖时通过随机数直接 O(1) 定位奖品。
-        Map<Integer, Integer> cacheRateTable =
-                redisService.getMap(Constants.RedisKey.STRATEGY_RATE_TABLE_KEY + key);
+        // 2. 利用 Redis Hash 结构存储映射表，Key 为随机数，Value 为对应的奖品 ID
+        // 抽奖时只需：Random(rateRange) -> GetFromHash(RandomValue) -> 获取中奖奖品
+        Map<Integer, Integer> cacheRateTable = redisService.getMap(Constants.RedisKey.STRATEGY_RATE_TABLE_KEY + key);
         cacheRateTable.putAll(shuffleStrategyAwardSearchRateTables);
     }
 
+    /**
+     * 获取抽奖概率分母（随机数上限）
+     *
+     * @param key 策略装配标识
+     * @return 概率总数
+     * @throws AppException 若策略未在 Armory 中装配，则抛出异常，防止非法访问
+     */
     @Override
     public int getRateRange(String key) {
         String cacheKey = Constants.RedisKey.STRATEGY_RATE_RANGE_KEY + key;
@@ -112,15 +135,28 @@ public class StrategyRepository implements IStrategyRepository {
         return redisService.getValue(cacheKey);
     }
 
+    /**
+     * 执行概率索引查询：根据生成的随机数获取对应中奖奖品
+     *
+     * @param key 策略装配标识
+     * @param rateKey 生成的随机索引值
+     * @return 奖品ID
+     */
     @Override
     public Integer getStrategyAwardAssemble(String key, int rateKey) {
-        // 直接根据随机数 rateKey 从 Redis Hash 映射表中通过 Key 快速获取奖品 ID
         return redisService.getFromMap(Constants.RedisKey.STRATEGY_RATE_TABLE_KEY + key, rateKey);
     }
 
+    /**
+     * 查询策略规则的具体配置值
+     *
+     * @param strategyId 策略ID
+     * @param awardId 奖品ID（可为 null，表示通用策略规则）
+     * @param ruleModel 规则模型标识（如：rule_lock, rule_luck_award）
+     * @return 规则配置内容（通常为 JSON 或字符串标识）
+     */
     @Override
     public String queryStrategyRuleValue(Long strategyId, Integer awardId, String ruleModel) {
-        // 构造查询条件对象，支持策略级别和奖品级别规则的统一查询
         StrategyRule strategyRule = StrategyRule.builder().strategyId(strategyId).awardId(awardId)
                                                 .ruleModel(ruleModel).build();
         return strategyRuleDao.queryStrategyRuleValue(strategyRule);
@@ -128,43 +164,47 @@ public class StrategyRepository implements IStrategyRepository {
 
     @Override
     public String queryStrategyRuleValue(Long strategyId, String ruleModel) {
-        // 重载方法：当不针对特定奖品时，awardId 传 null
         return queryStrategyRuleValue(strategyId, null, ruleModel);
     }
 
+    /**
+     * 检索策略主体实体信息
+     * 包含策略描述及该策略所挂载的所有规则模型清单。
+     *
+     * @param strategyId 策略ID
+     * @return 策略实体（StrategyEntity）
+     */
     @Override
     public StrategyEntity queryStrategyEntityByStrategyId(Long strategyId) {
         String cacheKey = Constants.RedisKey.STRATEGY_KEY + strategyId;
-        // 1. 优先从缓存获取策略主体配置
         StrategyEntity strategyEntity = redisService.getValue(cacheKey);
         if (null != strategyEntity) return strategyEntity;
 
-        // 2. 缓存缺失，查询数据库
         Strategy strategy = strategyDao.queryStrategyEntityByStrategyId(strategyId);
         if (null == strategy) return null;
 
-        // 3. 将 PO 转换为领域 Entity，并映射其规则模型列表
         strategyEntity = StrategyEntity.builder().strategyId(strategy.getStrategyId())
                                        .strategyDesc(strategy.getStrategyDesc())
                                        .ruleModels(strategy.getRuleModels()).build();
 
-        // 4. 写回缓存，防止频繁击穿数据库
         redisService.setValue(cacheKey, strategyEntity);
-
         return strategyEntity;
     }
 
+    /**
+     * 获取特定的策略规则实体详情
+     *
+     * @param strategyId 策略ID
+     * @param ruleModel 规则标识
+     * @return 包含规则类型、描述、配置值的实体对象
+     */
     @Override
     public StrategyRuleEntity queryStrategyRule(Long strategyId, String ruleModel) {
-        // 构建数据库查询请求对象
         StrategyRule strategyRuleReq = StrategyRule.builder().strategyId(strategyId).ruleModel(ruleModel)
                                                    .build();
-
-        // 执行 DAO 查询获取规则原始记录
         StrategyRule strategyRuleRes = strategyRuleDao.queryStrategyRule(strategyRuleReq);
         if (null == strategyRuleRes) return null;
 
-        // 组装领域实体：包含规则类型、配置值、描述等核心逻辑属性
         return StrategyRuleEntity.builder().strategyId(strategyRuleRes.getStrategyId())
                                  .awardId(strategyRuleRes.getAwardId())
                                  .ruleType(strategyRuleRes.getRuleType())
@@ -173,20 +213,30 @@ public class StrategyRepository implements IStrategyRepository {
                                  .ruleDesc(strategyRuleRes.getRuleDesc()).build();
     }
 
+    /**
+     * 构建立体化规则决策树模型 (RuleTreeVO)
+     * * 核心重组逻辑：将数据库中的扁平结构转化为图结构的 VO 对象
+     * 1. 分别从主表、节点表、连线表读取 PO 数据。
+     * 2. 构建连线映射 Map：以起始节点 (From) 为 Key，聚合所有可能的出口线 (Line List)。
+     * 3. 组装节点 Map：将节点元数据与其出口连线列表绑定，形成 RuleTreeNodeVO。
+     * 4. 封装树根及全局拓扑，实现决策引擎的递归遍历基础。
+     *
+     * @param treeId 规则树标识
+     * @return 完整组装的决策树 VO
+     */
     @Override
     public RuleTreeVO queryRuleTreeVOByTreeId(String treeId) {
-        // 1. 尝试命中规则树 VO 缓存，减少复杂的聚合查询
+        // 1. 尝试从缓存获取已组装好的决策树镜像
         String cacheKey = Constants.RedisKey.RULE_TREE_VO_KEY + treeId;
         RuleTreeVO ruleTreeVOCache = redisService.getValue(cacheKey);
         if (null != ruleTreeVOCache) return ruleTreeVOCache;
 
-        // 2. 数据库联查：分别获取树根信息、所有节点信息、所有连线逻辑
+        // 2. 数据库读取：树干、树叶（节点）、脉络（连线）
         RuleTree ruleTree = ruleTreeDao.queryRuleTreeByTreeId(treeId);
         List<RuleTreeNode> ruleTreeNodes = ruleTreeNodeDao.queryRuleTreeNodeListByTreeId(treeId);
-        List<RuleTreeNodeLine> ruleTreeNodeLines =
-                ruleTreeNodeLineDao.queryRuleTreeNodeLineListByTreeId(treeId);
+        List<RuleTreeNodeLine> ruleTreeNodeLines = ruleTreeNodeLineDao.queryRuleTreeNodeLineListByTreeId(treeId);
 
-        // 3. 核心步骤：构建节点间的“连线”映射 Map。key 是起始节点，value 是从该节点出发的所有连线。
+        // 3. 建立连线索引：按起始节点分组连线
         Map<String, List<RuleTreeNodeLineVO>> treeNodeLineVOMap = new HashMap<>();
         for (RuleTreeNodeLine line : ruleTreeNodeLines) {
             RuleTreeNodeLineVO lineVO = RuleTreeNodeLineVO.builder().treeId(line.getTreeId())
@@ -195,11 +245,10 @@ public class StrategyRepository implements IStrategyRepository {
                                                           .ruleLimitType(RuleLimitTypeVO.valueOf(line.getRuleLimitType()))
                                                           .ruleLimitValue(RuleLogicCheckTypeVO.valueOf(line.getRuleLimitValue()))
                                                           .build();
-            // 将连线按起始节点归类，方便后续节点执行时直接找到下一跳
             treeNodeLineVOMap.computeIfAbsent(line.getRuleNodeFrom(), k -> new ArrayList<>()).add(lineVO);
         }
 
-        // 4. 核心步骤：构建“节点”映射 Map。将每一个节点及其对应的出口连线逻辑组装在一起。
+        // 4. 节点深度封装：关联节点属性与该节点的出口路径逻辑
         Map<String, RuleTreeNodeVO> treeNodeVOMap = new HashMap<>();
         for (RuleTreeNode node : ruleTreeNodes) {
             RuleTreeNodeVO nodeVO = RuleTreeNodeVO.builder().treeId(node.getTreeId())
@@ -207,11 +256,11 @@ public class StrategyRepository implements IStrategyRepository {
                                                   .ruleValue(node.getRuleValue())
                                                   .treeNodeLineVOList(treeNodeLineVOMap.get(node.getRuleKey()))
                                                   .build();
-            // 存入 Map 时显式 trim，防止数据库空格导致 Key 匹配失效
+            // 存入 Map 时显式 trim，确保规则 Key 在比对时不受数据库空格影响
             treeNodeVOMap.put(node.getRuleKey().trim(), nodeVO);
         }
 
-        // 5. 组装整棵决策树，并存入缓存
+        // 5. 组装聚合对象 RuleTreeVO 并入库缓存
         RuleTreeVO ruleTreeVO = RuleTreeVO.builder().treeId(ruleTree.getTreeId())
                                           .treeName(ruleTree.getTreeName()).treeDesc(ruleTree.getTreeDesc())
                                           .treeRootRuleNode(ruleTree.getTreeRootRuleKey())
@@ -221,77 +270,105 @@ public class StrategyRepository implements IStrategyRepository {
         return ruleTreeVO;
     }
 
+    /**
+     * 查询奖品关联的规则模型映射（如奖品是否绑定决策树 ID）
+     */
     @Override
     public StrategyAwardRuleModelVO queryStrategyAwardRuleModel(Long strategyId, Integer awardId) {
-        // 构建请求对象查询奖品关联的规则模型（如抽奖N次必中、库存锁等）
         StrategyAward strategyAward = StrategyAward.builder().strategyId(strategyId).awardId(awardId).build();
         String ruleModel = strategyAwardDao.queryStrategyAwardRuleModel(strategyAward);
         if (StringUtils.isBlank(ruleModel)) return null;
-        // 封装为领域 VO 对象返回
         return StrategyAwardRuleModelVO.builder().ruleModels(ruleModel).build();
     }
 
+    /**
+     * 缓存奖品库存总量（初始化）
+     *
+     * @param cacheKey 缓存键 (strategy_award_count_key + strategyId + awardId)
+     * @param awardCount 初始库存值
+     */
     @Override
     public void cacheStrategyAwardCount(String cacheKey, Integer awardCount) {
-        // 若缓存中已存在该库存，则不再重复设置，保证初始化的原子性
+        // 原子操作保障：若已存在则跳过，防止多节点部署时并发重置库存
         if (redisService.isExists(cacheKey)) return;
-        // 使用 Redis 的 AtomicLong 记录原子库存，支撑高并发下的库存扣减
+        // 使用 Redis AtomicLong 支撑高频原子增减逻辑
         redisService.setAtomicLong(cacheKey, awardCount);
     }
 
+    /**
+     * 奖品库存扣减算法（高并发核心逻辑）
+     * * 实现机制：
+     * 1. 预扣减 (decr)：利用 Redis 单线程原子递减初步削减流量。
+     * 2. 状态锁 (setNx)：组合 "Key_库存余量" 作为分布式锁 Key。
+     * 意图：确保针对同一个库存瞬时值，仅有一个请求能扣减成功，彻底杜绝高并发下的超卖现象。
+     *
+     * @param key 库存缓存键
+     * @return boolean true 扣减成功，获得发奖资格
+     */
     @Override
     public Boolean subtractAwardStock(String key) {
-        // 1. 使用 Redis 的原子递减操作进行预减库存
+        // 1. 原子预减
         long surPlus = redisService.decr(key);
-        // 2. 如果剩余库存小于0，表示库存已经扣完，返回失败
         if (surPlus < 0) {
-            // 修正 Redis 中的负数值，归零处理
+            // 归零保护：当库存扣完，重置为0防止负值过大影响监控
             redisService.setValue(key, 0);
             return false;
         }
 
-        // 3. 构建分布式锁 Key，由 "库存Key_剩余库存值" 组成
-        // 这样做是为了在高并发下，通过 setNx 确保对于同一个剩余值只能由一个请求扣减成功，防止超卖。
+        // 2. 利用库存数值作为“状态快照锁”
+        // 举例：剩余 5 件时，并发 10 个请求 decr 都会成功，但仅有一个请求能拿到 key_5 的 setNx 锁
         String lockKey = key + Constants.UNDERLINE + surPlus;
         Boolean lock = redisService.setNx(lockKey);
         if (!lock) {
-            log.warn("策略奖品库存加锁失败 {}", lockKey);
+            log.warn("奖品库存状态锁竞争失败，视为库存扣减冲突: {}", lockKey);
         }
         return lock;
     }
 
+    /**
+     * 将奖品库存消耗流水存入延迟队列
+     * 目的：削峰填谷。通过 3 秒延迟，将 Redis 中的实时扣减操作平摊到数据库的异步同步中。
+     *
+     * @param strategyAwardStockKeyVO 包含策略 ID 与奖品 ID 的库存流水对象
+     */
     @Override
     public void awardStockConsumeSendQueue(StrategyAwardStockKeyVO strategyAwardStockKeyVO) {
-        // 定义库存消耗队列的 Key
         String cacheKey = Constants.RedisKey.STRATEGY_AWARD_COUNT_QUERY_KEY;
-        // 使用 Redisson 的阻塞队列获取任务
+        // 获取阻塞队列，衔接 Job 消费逻辑
         RBlockingQueue<StrategyAwardStockKeyVO> blockingQueue = redisService.getBlockingQueue(cacheKey);
-        // 通过延迟队列包装，实现在 3 秒后再将扣减任务放入消费队列，平滑数据库写入压力
+        // 包装为延迟队列，平稳流量突刺
         RDelayedQueue<StrategyAwardStockKeyVO> delayedQueue = redisService.getDelayedQueue(blockingQueue);
         delayedQueue.offer(strategyAwardStockKeyVO, 3, TimeUnit.SECONDS);
     }
 
+    /**
+     * 从异步队列提取待处理的库存流水（供 Job 节点调用）
+     */
     @Override
     public StrategyAwardStockKeyVO takeQueueValue() {
-        // 从 Redis 阻塞队列中弹出一个待处理的库存扣减任务
         String cacheKey = Constants.RedisKey.STRATEGY_AWARD_COUNT_QUERY_KEY;
         RBlockingQueue<StrategyAwardStockKeyVO> blockingQueue = redisService.getBlockingQueue(cacheKey);
         return blockingQueue.poll();
     }
 
+    /**
+     * 将 Redis 预扣减结果持久化同步至数据库
+     */
     @Override
     public void updateStrategyAwardStock(Long strategyId, Integer awardId) {
-        // 最终调用数据库 DAO，将 Redis 中成功预扣减的库存反映到 MySQL 持久层
         strategyAwardDao.updateStrategyAwardStock(StrategyAward.builder().strategyId(strategyId)
                                                                .awardId(awardId).build());
     }
 
+    /**
+     * 检索单个奖品实体信息（优先从缓存镜像中读取）
+     */
     @Override
     public StrategyAwardEntity queryStrategyAwardEntity(Long strategyId, Integer awardId) {
-        // 定义库存消耗队列的 Key
         String cacheKey = Constants.RedisKey.STRATEGY_AWARD_KEY + strategyId + Constants.UNDERLINE + awardId;
         StrategyAwardEntity strategyAwardEntity = redisService.getValue(cacheKey);
         if (strategyAwardEntity != null) return strategyAwardEntity;
+
         StrategyAward strategyAward = strategyAwardDao.queryStrategyAwardEntity(StrategyAward.builder()
                                                                                              .strategyId(strategyId)
                                                                                              .awardId(awardId)
@@ -306,6 +383,5 @@ public class StrategyRepository implements IStrategyRepository {
                                                  .awardSubtitle(strategyAward.getAwardSubtitle()).build();
         redisService.setValue(cacheKey, strategyAwardEntity);
         return strategyAwardEntity;
-
     }
 }

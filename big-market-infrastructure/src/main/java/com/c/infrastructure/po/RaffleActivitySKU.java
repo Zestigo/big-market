@@ -1,64 +1,42 @@
 package com.c.infrastructure.po;
 
 import lombok.Data;
-
 import java.util.Date;
 
 /**
- * @description 抽奖活动 SKU 持久化对象（Persistent Object）
- * 1. 对应数据库表：raffle_activity_sku
- * 2. 职责：SKU 是活动领取的最小颗粒度单元，封装了活动、次数配置与库存的关联关系。
- * * @author cyh
+ * 抽奖活动-SKU持久化对象（活动领取最小颗粒度单元）
+ * 对应数据库表：raffle_activity_sku
+ * 核心职责：封装「活动配置+次数限制模板+活动库存」的关联关系，是用户参与活动的唯一入口载体
+ * 关键设计：库存字段为所有用户共享，次数限制通过关联模板指向单用户规则
+ *
+ * @author cyh
  * @date 2026/01/27
  */
 @Data
 public class RaffleActivitySKU {
 
-    /**
-     * 自增主键 ID
-     */
+    /** 数据库自增主键ID */
     private Long id;
 
-    /**
-     * 商品库存单位编码（SKU）
-     * 对外暴露的业务标识，用户通过此编码参与对应的抽奖活动。
-     */
+    /** 活动SKU业务编码，对外暴露的唯一参与标识，用户通过此编码参与对应抽奖活动 */
     private Long sku;
 
-    /**
-     * 抽奖活动 ID
-     * 对应 raffle_activity 表的业务标识，用于关联具体的活动配置（如活动名称、时间、状态）。
-     */
+    /** 抽奖活动业务ID，外键关联raffle_activity表，绑定具体活动（名称/时间/状态等） */
     private Long activityId;
 
-    /**
-     * 活动次数配置编号
-     * 对应 raffle_activity_count 表的标识，用于定义该 SKU 参与时的次数限制（总、日、月次数）。
-     */
+    /** 次数限制模板业务ID，外键关联RaffleActivityCount.activityCountId，复用次数限制规则 */
     private Long activityCountId;
 
-    /**
-     * 活动总库存次数
-     * 该 SKU 允许发放的总参与资格数量（例如：该活动总共只能被领取 1000 次）。
-     */
+    /** 活动总库存次数：该SKU可发放的**全局总参与资格数**（所有用户共享），配置后一般不修改 */
     private Integer stockCount;
 
-    /**
-     * 剩余库存次数
-     * 实时记录当前还剩多少可领取的资格，用于并发扣减库存。
-     */
+    /** 活动剩余库存次数：实时记录可领取的参与资格数，支持并发扣减，扣至0则活动停止领取 */
     private Integer stockCountSurplus;
 
-    /**
-     * 创建时间
-     * 记录记录首次插入数据库的时间。
-     */
+    /** 记录创建时间 */
     private Date createTime;
 
-    /**
-     * 更新时间
-     * 记录数据最后一次修改的时间，常用于乐观锁或数据同步。
-     */
+    /** 记录最后更新时间（用于乐观锁/数据同步/库存变更追溯） */
     private Date updateTime;
 
 }

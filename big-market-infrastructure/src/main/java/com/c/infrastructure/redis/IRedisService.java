@@ -190,6 +190,15 @@ public interface IRedisService {
      * @return true: 成功获得锁（此前不存在）；false: 获取锁失败
      */
     Boolean setNx(String lockKey);
+    /**
+     * 设置基础键值对
+     *
+     * @param key      键
+     * @param value    值
+     * @param timeout  过期时间
+     * @param timeUnit 时间单位（如 TimeUnit.MINUTES）
+     */
+     <T> void setValue(String key, T value, long timeout, TimeUnit timeUnit);
 
     Boolean setNx(String key, long expired, TimeUnit timeUnit);
 }

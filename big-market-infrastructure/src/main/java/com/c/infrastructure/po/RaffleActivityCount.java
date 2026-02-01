@@ -4,8 +4,9 @@ import lombok.Data;
 import java.util.Date;
 
 /**
- * 活动参与次数配置持久化对象
- * 职责：作为配置模板，定义某一类活动默认的总、日、月抽奖限制数。
+ * 抽奖活动-参与次数限制配置模板
+ * 设计初衷：抽离通用的用户参与次数限制规则为独立模板，实现多活动规则复用，避免重复配置，便于批量修改规则
+ * 核心职责：定义单用户参与抽奖活动的「总/日/月」次数限制规则，作为通用模板被RaffleActivitySKU关联引用
  *
  * @author cyh
  * @date 2026/01/25
@@ -13,25 +14,25 @@ import java.util.Date;
 @Data
 public class RaffleActivityCount {
 
-    /** 自增ID */
+    /** 数据库自增主键ID */
     private Long id;
 
-    /** 活动次数编号（配置标识） */
+    /** 本配置模板的业务唯一标识，作为外键被RaffleActivitySKU.activityCountId关联 */
     private Long activityCountId;
 
-    /** 限制的总次数 */
+    /** 单用户对该规则模板的「终身总参与次数限制」，针对单个用户独立计数 */
     private Integer totalCount;
 
-    /** 限制的日次数 */
+    /** 单用户对该规则模板的「单日参与次数限制」，针对单个用户独立计数 */
     private Integer dayCount;
 
-    /** 限制的月次数 */
+    /** 单用户对该规则模板的「单月参与次数限制」，针对单个用户独立计数 */
     private Integer monthCount;
 
-    /** 创建时间 */
+    /** 记录创建时间 */
     private Date createTime;
 
-    /** 更新时间 */
+    /** 记录最后更新时间 */
     private Date updateTime;
 
 }

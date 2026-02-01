@@ -60,24 +60,24 @@ spring:
 
   # ========================= 分库分表（ShardingSphere）配置 =========================
   shardingsphere:
-    # 1. 多数据源配置
+    # 1. 数据源配置
     datasource:
-      names: ds_0,ds_1,big_market  # 数据源名称列表（分库数据源+默认数据源）
-      # 分库数据源01
+      names: ds_0,ds_1,big_market
+      # 分库01 - 存储用户私有数据（订单、账户、任务等）
       ds_0:
-        type: com.zaxxer.hikari.HikariDataSource  # 数据源类型（HikariCP高性能连接池）
-        driver-class-name: com.mysql.cj.jdbc.Driver  # MySQL驱动类
+        type: com.zaxxer.hikari.HikariDataSource
+        driver-class-name: com.mysql.cj.jdbc.Driver
         url: jdbc:mysql://192.168.21.130:13306/big_market_01?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false
-        username: root       # 数据库用户名
-        password: 123456     # 数据库密码（生产环境建议通过配置中心/环境变量注入）
-      # 分库数据源02
+        username: root
+        password: 123456
+      # 分库02 - 存储用户私有数据（分片副本）
       ds_1:
         type: com.zaxxer.hikari.HikariDataSource
         driver-class-name: com.mysql.cj.jdbc.Driver
         url: jdbc:mysql://192.168.21.130:13306/big_market_02?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false
         username: root
         password: 123456
-      # 默认数据源（未分片的表使用该数据源）
+      # 默认库 - 存储活动配置、规则、策略等公共基础数据
       big_market:
         type: com.zaxxer.hikari.HikariDataSource
         driver-class-name: com.mysql.cj.jdbc.Driver
@@ -85,53 +85,105 @@ spring:
         username: root
         password: 123456
 
-    # 2. 分库分表规则配置
+    # 2. 分片规则配置
     rules:
       sharding:
+        # 未在下文 tables 明确配置的表，全部走此默认数据源（即：award, strategy, rule_tree 等）
         default-data-source-name: big_market
 
         tables:
+          # ================== 第一部分：分库 + 分表 (每个库下有 4 张物理表) ==================
 
-          # ================== 抽奖订单表（分库 + 分表） ==================
-          raffle_activity_order:
-            actual-data-nodes: ds_${0..1}.raffle_activity_order_00${0..3}
-
+          # 用户抽奖订单表 (Logic Table: user_raffle_order)
+          user_raffle_order:
+            actual-data-nodes: ds_${0..1}.user_raffle_order_00${0..3}
             database-strategy:
               standard:
                 sharding-column: user_id
                 sharding-algorithm-name: sys_user_db_alg
-
             table-strategy:
               standard:
                 sharding-column: user_id
                 sharding-algorithm-name: sys_user_tbl_alg
 
-          # ================== 抽奖账户表（仅分库，不分表） ==================
+          # 抽奖活动订单表 (Logic Table: raffle_activity_order)
+          raffle_activity_order:
+            actual-data-nodes: ds_${0..1}.raffle_activity_order_00${0..3}
+            database-strategy:
+              standard:
+                sharding-column: user_id
+                sharding-algorithm-name: sys_user_db_alg
+            table-strategy:
+              standard:
+                sharding-column: user_id
+                sharding-algorithm-name: sys_user_tbl_alg
+
+          # 用户中奖记录表 (Logic Table: user_award_record)
+          user_award_record:
+            actual-data-nodes: ds_${0..1}.user_award_record_00${0..3}
+            database-strategy:
+              standard:
+                sharding-column: user_id
+                sharding-algorithm-name: sys_user_db_alg
+            table-strategy:
+              standard:
+                sharding-column: user_id
+                sharding-algorithm-name: sys_user_tbl_alg
+
+          # ================== 第二部分：仅分库 + 不分表 (每个库下只有 1 张物理表) ==================
+
+          # 抽奖账户总表
           raffle_activity_account:
             actual-data-nodes: ds_${0..1}.raffle_activity_account
-
             database-strategy:
               standard:
                 sharding-column: user_id
                 sharding-algorithm-name: sys_user_db_alg
 
-        # 分片算法配置
+          # 抽奖账户月维度表
+          raffle_activity_account_month:
+            actual-data-nodes: ds_${0..1}.raffle_activity_account_month
+            database-strategy:
+              standard:
+                sharding-column: user_id
+                sharding-algorithm-name: sys_user_db_alg
+
+          # 抽奖账户日维度表
+          raffle_activity_account_day:
+            actual-data-nodes: ds_${0..1}.raffle_activity_account_day
+            database-strategy:
+              standard:
+                sharding-column: user_id
+                sharding-algorithm-name: sys_user_db_alg
+
+          # 异步任务表 (用于补偿逻辑)
+          task:
+            actual-data-nodes: ds_${0..1}.task
+            database-strategy:
+              standard:
+                sharding-column: user_id
+                sharding-algorithm-name: sys_user_db_alg
+
+        # 3. 分片算法实现
         sharding-algorithms:
+          # 自定义分库算法：基于 user_id 进行哈希计算路由到 ds_0 或 ds_1
           sys_user_db_alg:
             type: CLASS_BASED
             props:
               strategy: STANDARD
               algorithmClassName: com.c.types.common.MyDatabaseAlgorithm
 
+          # 自定义分表算法：基于 user_id 进行哈希计算路由到 _000 ~ _003
           sys_user_tbl_alg:
             type: CLASS_BASED
             props:
               strategy: STANDARD
               algorithmClassName: com.c.types.common.MyTableAlgorithm
 
-    # 3. ShardingSphere属性配置
+    # 4. 其他属性
     props:
-      sql-show: true  # 打印分片后的SQL语句（开发环境开启，生产环境建议关闭）
+      # 打印 SQL 解析日志，非常关键，如果配置没生效，看这里的 Actual SQL 就能秒懂
+      sql-show: true
 
 # ========================= MyBatis配置 =========================
 mybatis:

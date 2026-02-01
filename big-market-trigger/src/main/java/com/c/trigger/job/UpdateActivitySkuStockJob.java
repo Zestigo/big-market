@@ -1,7 +1,7 @@
 package com.c.trigger.job;
 
 import com.c.domain.activity.model.vo.ActivitySkuStockKeyVO;
-import com.c.domain.activity.service.ISkuStock;
+import com.c.domain.activity.service.IRaffleActivitySkuStockService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -25,7 +25,7 @@ import javax.annotation.Resource;
 public class UpdateActivitySkuStockJob {
 
     @Resource
-    private ISkuStock skuStock;
+    private IRaffleActivitySkuStockService skuStock;
 
     /**
      * 执行库存同步任务

@@ -19,8 +19,6 @@ public interface IAwardDao {
 
     /**
      * 查询全量奖品列表
-     * <p>
-     * 注意事项：
      * 1. 在高并发抽奖场景下，建议将此结果集缓存至 Redis 或本地内存中。
      * 2. 返回的 {@link Award} 是 PO 对象，在领域层使用时应转换为 AwardEntity。
      *

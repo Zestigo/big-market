@@ -1,11 +1,12 @@
-package com.c.domain.activity.service;
+package com.c.domain.activity.service.quota;
 
-import com.c.domain.activity.model.aggregate.CreateOrderAggregate;
+import com.c.domain.activity.model.aggregate.CreateQuotaOrderAggregate;
 import com.c.domain.activity.model.entity.*;
 import com.c.domain.activity.model.vo.ActivitySkuStockKeyVO;
 import com.c.domain.activity.model.vo.OrderStateVO;
 import com.c.domain.activity.repositor.IActivityRepository;
-import com.c.domain.activity.service.rule.factory.DefaultActivityChainFactory;
+import com.c.domain.activity.service.IRaffleActivitySkuStockService;
+import com.c.domain.activity.service.quota.rule.factory.DefaultActivityChainFactory;
 import org.apache.commons.lang.RandomStringUtils;
 import org.springframework.stereotype.Service;
 
@@ -22,7 +23,7 @@ import java.util.Date;
  * @date 2026/01/27
  */
 @Service
-public class RaffleActivityService extends AbstractRaffleActivity implements ISkuStock {
+public class RaffleActivityAccountQuotaService extends AbstractRaffleActivityAccountQuota implements IRaffleActivitySkuStockService {
 
     /**
      * 构造函数注入：初始化底层组件
@@ -30,8 +31,8 @@ public class RaffleActivityService extends AbstractRaffleActivity implements ISk
      * @param activityRepository          活动仓储：封装对 DB、Redis 及延迟消息队列的底层访问。
      * @param defaultActivityChainFactory 责任链工厂：通过工厂模式获取针对不同 SKU 的业务校验规则链。
      */
-    public RaffleActivityService(IActivityRepository activityRepository,
-                                 DefaultActivityChainFactory defaultActivityChainFactory) {
+    public RaffleActivityAccountQuotaService(IActivityRepository activityRepository,
+                                             DefaultActivityChainFactory defaultActivityChainFactory) {
         super(activityRepository, defaultActivityChainFactory);
     }
 
@@ -46,10 +47,10 @@ public class RaffleActivityService extends AbstractRaffleActivity implements ISk
      * @return CreateOrderAggregate 包含用户信息、活动信息及订单明细的聚合根
      */
     @Override
-    protected CreateOrderAggregate buildOrderAggregate(SkuRechargeEntity skuRechargeEntity,
-                                                       ActivitySkuEntity activitySkuEntity,
-                                                       ActivityEntity activityEntity,
-                                                       ActivityCountEntity activityCountEntity) {
+    protected CreateQuotaOrderAggregate buildOrderAggregate(SkuRechargeEntity skuRechargeEntity,
+                                                            ActivitySkuEntity activitySkuEntity,
+                                                            ActivityEntity activityEntity,
+                                                            ActivityCountEntity activityCountEntity) {
 
         // 1. 构建活动订单实体：承载业务快照与支付/参与流水
         ActivityOrderEntity activityOrderEntity = ActivityOrderEntity.builder()
@@ -68,23 +69,23 @@ public class RaffleActivityService extends AbstractRaffleActivity implements ISk
                                                                      .state(OrderStateVO.completed).build();
 
         // 2. 组装并返回聚合根：统一管理关联实体的生命周期
-        return CreateOrderAggregate.builder().userId(skuRechargeEntity.getUserId())
-                                   .activityId(activitySkuEntity.getActivityId())
-                                   .totalCount(activityCountEntity.getTotalCount())
-                                   .dayCount(activityCountEntity.getDayCount())
-                                   .monthCount(activityCountEntity.getMonthCount())
-                                   .activityOrderEntity(activityOrderEntity).build();
+        return CreateQuotaOrderAggregate.builder().userId(skuRechargeEntity.getUserId())
+                                        .activityId(activitySkuEntity.getActivityId())
+                                        .totalCount(activityCountEntity.getTotalCount())
+                                        .dayCount(activityCountEntity.getDayCount())
+                                        .monthCount(activityCountEntity.getMonthCount())
+                                        .activityOrderEntity(activityOrderEntity).build();
     }
 
     /**
      * 执行订单持久化落库
      * * 调用触发点：在责任链（含库存扣减、规则匹配）执行成功后，由父类模板方法发起调用。
      *
-     * @param createOrderAggregate 封装了订单流水与参与限额信息的聚合根
+     * @param createQuotaOrderAggregate 封装了订单流水与参与限额信息的聚合根
      */
     @Override
-    protected void doSaveOrder(CreateOrderAggregate createOrderAggregate) {
-        activityRepository.doSaveOrder(createOrderAggregate);
+    protected void doSaveOrder(CreateQuotaOrderAggregate createQuotaOrderAggregate) {
+        activityRepository.doSaveOrder(createQuotaOrderAggregate);
     }
 
     /**

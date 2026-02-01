@@ -1,9 +1,8 @@
 package com.c.domain.activity.repositor;
 
-import com.c.domain.activity.model.aggregate.CreateOrderAggregate;
-import com.c.domain.activity.model.entity.ActivityCountEntity;
-import com.c.domain.activity.model.entity.ActivityEntity;
-import com.c.domain.activity.model.entity.ActivitySkuEntity;
+import com.c.domain.activity.model.aggregate.CreatePartakeOrderAggregate;
+import com.c.domain.activity.model.aggregate.CreateQuotaOrderAggregate;
+import com.c.domain.activity.model.entity.*;
 import com.c.domain.activity.model.vo.ActivitySkuStockKeyVO;
 
 import java.util.Date;
@@ -11,7 +10,7 @@ import java.util.Date;
 /**
  * 抽奖活动仓储接口 (Activity Domain Repository)
  * 1. 领域隔离：作为适配器层，封装对数据库 (MySQL) 和缓存 (Redis) 的访问，屏蔽基础设施层的技术实现差异。
- * 2. 聚合根管理：维护 {@link CreateOrderAggregate} 聚合根的持久化，确保活动单生成与账户额度变更的原子性。
+ * 2. 聚合根管理：维护 {@link CreateQuotaOrderAggregate} 聚合根的持久化，确保活动单生成与账户额度变更的原子性。
  * 3. 库存控制中心：定义从物理库库存预热、缓存预扣减到异步流水同步的全链路数据契约。
  *
  * @author cyh
@@ -53,9 +52,9 @@ public interface IActivityRepository {
      * 2. 更新/新增用户活动账户额度 (raffle_activity_account)。
      * 3. 必须在同一个数据库事务内完成，确保“扣减次数”与“生成单据”的强一致性。
      *
-     * @param createOrderAggregate 包含用户信息、活动信息及订单明细的聚合根对象
+     * @param createQuotaOrderAggregate 包含用户信息、活动信息及订单明细的聚合根对象
      */
-    void doSaveOrder(CreateOrderAggregate createOrderAggregate);
+    void doSaveOrder(CreateQuotaOrderAggregate createQuotaOrderAggregate);
 
     /**
      * 获取异步库存扣减流水（供 Worker 节点调用）
@@ -92,7 +91,6 @@ public interface IActivityRepository {
 
     /**
      * 执行 Redis 原子预扣减库存（高并发控制）
-     * <p>
      * 设计意图：利用 Redis 单线程原子性抗住第一波并发压力。
      *
      * @param sku         商品 SKU 编号
@@ -142,4 +140,64 @@ public interface IActivityRepository {
      * @return true-已售罄，直接拦截请求；false-仍有库存
      */
     boolean isSkuStockZero(Long sku);
+    /**
+     * 查询用户是否存在【已创建但未使用】的活动参与订单
+     * * 业务场景：
+     * 幂等性控制的核心。当用户在参与活动过程中发生网络抖动或超时重试时，通过此接口检查
+     * 是否已经预扣过额度并生成了订单。若存在，则直接返回，避免用户额度被多次扣减。
+     *
+     * @param partakeRaffleActivityEntity 包含 userId 和 activityId 的参与实体
+     * @return 已存在且可用的用户抽奖订单实体，若无则返回 null
+     */
+    UserRaffleOrderEntity queryNoUsedRaffleOrder(PartakeRaffleActivityEntity partakeRaffleActivityEntity);
+
+    /**
+     * 查询用户在特定活动下的【总账户】额度
+     * * 职责：
+     * 获取用户在该活动期间的总参与次数、总剩余次数，作为最外层的参与门槛校验。
+     *
+     * @param userId     用户唯一标识
+     * @param activityId 活动唯一标识
+     * @return 活动总账户实体（包含总次数配置及余额）
+     */
+    ActivityAccountEntity queryActivityAccountByUserId(String userId, Long activityId);
+
+    /**
+     * 查询用户在特定活动下的【月账户】额度
+     * * 业务逻辑：
+     * 配合自然月限额规则。例如活动规定每人每月限抽 10 次，此处将检索该用户在当前月份已使用的额度快照。
+     *
+     * @param userId     用户唯一标识
+     * @param activityId 活动唯一标识
+     * @param month      月份标识（格式示例：yyyy-mm）
+     * @return 月度账户额度实体
+     */
+    ActivityAccountMonthEntity queryActivityAccountMonthByUserId(String userId, Long activityId,
+                                                                 String month);
+
+    /**
+     * 查询用户在特定活动下的【日账户】额度
+     * * 业务逻辑：
+     * 配合自然日限额规则（最细粒度的风控）。例如每人每日限抽 1 次，用于防止瞬时流量激增或羊毛党刷单。
+     *
+     * @param userId     用户唯一标识
+     * @param activityId 活动唯一标识
+     * @param day        日期标识（格式示例：yyyy-mm-dd）
+     * @return 日度账户额度实体
+     */
+    ActivityAccountDayEntity queryActivityAccountDayByUserId(String userId, Long activityId, String day);
+
+    /**
+     * 持久化活动参与订单聚合根（核心原子操作）
+     * * 数据库事务职责：
+     * 1. 扣减账户额度：同步更新总账户、月账户、日账户的剩余次数。
+     * 2. 插入参与订单：保存本次生成的 UserRaffleOrder 记录。
+     * 3. 任务下发：若涉及积分扣减或异步通知，则同时写入 Task 任务单。
+     * * 必须确保以上操作在同一个本地事务中完成，以维护领域模型的完整性。
+     *
+     *
+     *
+     * @param createPartakeOrderAggregate 包含各级账户变更与新订单信息的聚合根对象
+     */
+    void saveCreatePartakeOrderAggregate(CreatePartakeOrderAggregate createPartakeOrderAggregate);
 }

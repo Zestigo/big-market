@@ -2,7 +2,7 @@ package com.c.trigger.listener;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.TypeReference;
-import com.c.domain.activity.service.ISkuStock;
+import com.c.domain.activity.service.IRaffleActivitySkuStockService;
 import com.c.types.event.BaseEvent;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
@@ -25,7 +25,7 @@ import javax.annotation.Resource;
 public class ActivitySkuStockZeroCustomer {
 
     @Resource
-    private ISkuStock skuStock;
+    private IRaffleActivitySkuStockService skuStock;
 
     /**
      * 消费库存售罄信号消息

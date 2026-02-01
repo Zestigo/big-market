@@ -12,5 +12,28 @@
         <result column="create_time" property="createTime"/>
         <result column="update_time" property="updateTime"/>
     </resultMap>
+    <insert id="insert" parameterType="com.c.infrastructure.po.RaffleActivityAccountMonth">
+        insert into raffle_activity_account_month(user_id, activity_id, month, month_count, month_count_surplus, create_time, update_time)
+        values (#{userId}, #{activityId}, #{month}, #{monthCount}, #{monthCountSurplus}, now(), now())
+    </insert>
+
+    <select id="queryActivityAccountMonthByUserId" parameterType="com.c.infrastructure.po.RaffleActivityAccountMonth" resultMap="dataMap">
+        select user_id, activity_id, month, month_count, month_count_surplus
+        from raffle_activity_account_month
+        where user_id = #{userId}
+          and activity_id = #{activityId}
+          and month = #{month}
+    </select>
+
+    <update id="updateActivityAccountMonthSubtractionQuota" parameterType="com.c.infrastructure.po.RaffleActivityAccountMonth">
+        update raffle_activity_account_month
+        set month_count_surplus = month_count_surplus - 1,
+            update_time         = now()
+        where user_id = #{userId}
+          and activity_id = #{activityId}
+          and month = #{month}
+          and month_count_surplus > 0
+    </update>
+
 
 </mapper>

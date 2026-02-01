@@ -1,4 +1,4 @@
-package com.c.domain.activity.service.rule;
+package com.c.domain.activity.service.quota.rule;
 
 /**
  * 抽奖活动规则链装配工厂接口

@@ -3,7 +3,7 @@ package com.c.domain.activity.service;
 import com.c.domain.activity.model.vo.ActivitySkuStockKeyVO;
 
 /**
- * 活动 SKU 库存异步处理服务接口 (Activity SKU Stock Async Processing Service)
+ * 活动 SKU 库存异步处理服务接口
  * 1. 最终一致性保障：负责将 Redis 缓存中的预扣减结果，通过异步链路同步至 MySQL 持久层。
  * 2. 削峰填谷中间件：作为库存消耗队列（BlockingQueue/Stream）的调度核心，缓冲高并发下的瞬时数据库写压力。
  * 3. 售罄状态同步：管理“售罄标识位”，实现数据库与缓存层在库存枯竭时的状态强一致性。
@@ -11,7 +11,7 @@ import com.c.domain.activity.model.vo.ActivitySkuStockKeyVO;
  * @author cyh
  * @date 2026/01/31
  */
-public interface ISkuStock {
+public interface IRaffleActivitySkuStockService {
 
     /**
      * 获取库存消耗队列中的待处理元素

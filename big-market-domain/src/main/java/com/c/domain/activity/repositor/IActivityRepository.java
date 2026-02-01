@@ -9,101 +9,137 @@ import com.c.domain.activity.model.vo.ActivitySkuStockKeyVO;
 import java.util.Date;
 
 /**
+ * 抽奖活动仓储接口 (Activity Domain Repository)
+ * 1. 领域隔离：作为适配器层，封装对数据库 (MySQL) 和缓存 (Redis) 的访问，屏蔽基础设施层的技术实现差异。
+ * 2. 聚合根管理：维护 {@link CreateOrderAggregate} 聚合根的持久化，确保活动单生成与账户额度变更的原子性。
+ * 3. 库存控制中心：定义从物理库库存预热、缓存预扣减到异步流水同步的全链路数据契约。
+ *
  * @author cyh
- * @description 抽奖活动仓储接口
- * 职责：
- * 1. 领域层与基础层解耦：定义数据操作契约，不关心底层是 MySQL、Redis 还是 MQ。
- * 2. 维护领域对象：处理聚合根（Aggregate）的整体持久化，确保业务事务的完整性。
  * @date 2026/01/27
  */
 public interface IActivityRepository {
 
     /**
-     * 查询活动 SKU 详情
-     * 用于获取活动商品的基础配置，是下单流程的入口数据。
+     * 查询活动 SKU 持久化详情
+     * 业务背景：下单流程的第一步，用于获取 SKU 关联的 activityId、countId 以及当前的销售策略。
      *
-     * @param sku 库存单元唯一标识
+     * @param sku 库存单元唯一标识（活动商品的最小销售单元）
+     * @return ActivitySkuEntity 包含活动参与门槛及关联规则 ID 的领域实体
      */
     ActivitySkuEntity queryActivitySku(Long sku);
 
     /**
-     * 查询抽奖活动配置
+     * 查询抽奖活动主体配置
+     * 业务背景：校验活动状态（开启/关闭）、活动有效期（起止时间）以及关联的策略 ID。
      *
-     * @param activityId 活动唯一标识
+     * @param activityId 活动唯一标识 ID
+     * @return ActivityEntity 活动配置领域实体
      */
     ActivityEntity queryRaffleActivityByActivityId(Long activityId);
 
     /**
-     * 查询抽奖次数限制规则
+     * 查询抽奖额度限制规则
+     * 业务背景：获取活动定义的次数限制，包括总限额、日限额和月限额配置。
      *
-     * @param activityCountId 次数规则配置 ID
+     * @param activityCountId 额度规则配置 ID
+     * @return ActivityCountEntity 次数限制领域实体
      */
     ActivityCountEntity queryRaffleActivityCountByActivityCountId(Long activityCountId);
 
     /**
-     * 保存下单聚合根对象
-     * 这是一个原子操作，通常包含：写入活动单、更新用户账户（次数）、以及扣减缓存后的日志记录。
+     * 持久化活动下单聚合根（核心事务操作）
+     * * 业务逻辑：
+     * 1. 记录活动参与订单 (raffle_activity_order)。
+     * 2. 更新/新增用户活动账户额度 (raffle_activity_account)。
+     * 3. 必须在同一个数据库事务内完成，确保“扣减次数”与“生成单据”的强一致性。
      *
-     * @param createOrderAggregate 包含订单详情、账户信息、行为状态的聚合根
+     * @param createOrderAggregate 包含用户信息、活动信息及订单明细的聚合根对象
      */
     void doSaveOrder(CreateOrderAggregate createOrderAggregate);
 
     /**
-     * 从预扣库存队列中获取 SKU 消费记录
-     * 场景：用于异步同步数据库库存，通常从 Redis 的 List 或 BlockingQueue 中弹出数据。
+     * 获取异步库存扣减流水（供 Worker 节点调用）
+     * 设计意图：从分布式阻塞队列（如 Redis 延迟队列或 List）中弹出预扣成功的 SKU 记录，用于同步物理库。
      *
-     * @return ActivitySkuStockKeyVO 包含需要同步的 SKU 信息
+     * @return ActivitySkuStockKeyVO 包含待更新库存的 SKU 信息载体
      */
     ActivitySkuStockKeyVO takeQueueValue();
 
     /**
-     * 清空预扣库存队列数据
-     * 用于系统重置或异常处理时清空暂存的消息。
+     * 清理库存同步队列
+     * 场景说明：用于系统运维、库存对账异常后的数据重置。
      */
     void clearQueueValue();
 
     /**
-     * 异步更新数据库中的 SKU 库存
-     * 场景：根据 Redis 的预扣减结果，定时或触发式地同步回写数据库。
+     * 将预扣成功的 SKU 存入异步更新队列
+     * * 核心价值：实现“写合并”与“削峰填谷”。
+     * 将高并发下的瞬时库存更新压力，转化为队列中的有序流水，由后台 Job 平滑地同步至 MySQL。
      *
-     * @param sku 商品唯一标识
-     */
-    void updateActivitySkuStock(Long sku);
-
-    /**
-     * 将扣减成功的 SKU 加入异步更新队列
-     * 实现削峰填谷的关键，将即时的请求压力转化为后台的顺序处理。
-     *
-     * @param activitySkuStockKeyVO 库存扣减信息载体
+     * @param activitySkuStockKeyVO 成功扣减的库存流水 VO
      */
     void activitySkuStockConsumeSendQueue(ActivitySkuStockKeyVO activitySkuStockKeyVO);
 
     /**
-     * 强制清空/同步数据库库存为 0
-     * 场景：当缓存中库存完全耗尽且发送售罄事件时，确保 DB 状态与缓存绝对一致。
+     * 预热活动 SKU 缓存库存
+     * * 执行时机：活动装配阶段 (Armory)。
+     * 逻辑：将 MySQL 数据库中的 `stock_count_surplus` 剩余库存加载至 Redis AtomicLong 结构。
      *
-     * @param sku 商品唯一标识
-     */
-    void clearActivitySkuStock(Long sku);
-
-    /**
-     * 缓存活动 SKU 库存数量（库存预热/初始化）
-     * 在活动装配阶段（Armory），将数据库中的物理库存同步至 Redis 缓存中，为高并发扣减做准备。
-     *
-     * @param cacheKey   Redis 存储的唯一键（通常格式为：activity_sku_stock_count_{sku}）
-     * @param stockCount 需要初始化的库存总数（来自数据库的 raffle_activity_sku.stock_count）
+     * @param cacheKey   Redis 存储的唯一键（建议格式：activity_sku_stock_count_{sku}）
+     * @param stockCount 物理库当前的实时剩余库存数量
      */
     void cacheActivitySkuStockCount(String cacheKey, Integer stockCount);
 
     /**
-     * 原子扣减活动 SKU 库存（Redis 高并发预扣减）
+     * 执行 Redis 原子预扣减库存（高并发控制）
+     * <p>
+     * 设计意图：利用 Redis 单线程原子性抗住第一波并发压力。
      *
-     * @param sku         商品 SKU 编号，用于识别具体的抽奖商品单元。
-     * @param cacheKey    库存对应的 Redis Key。
-     * @param endDateTime 活动结束时间。用于控制缓存的生命周期，确保活动结束后相关库存 Key 能够自动过期或被回收。
-     * @return boolean    扣减结果反馈：
-     * - true：扣减成功，代表当前缓存库存充裕，用户可以继续抽奖下单。
-     * - false：扣减失败，代表库存已耗尽（售罄）或当前 SKU 不可用。
+     * @param sku         商品 SKU 编号
+     * @param cacheKey    库存对应的 Redis Key
+     * @param endDateTime 活动结束时间（用于设置 Key 过期时间，防止内存泄露）
+     * @return boolean    扣减结果：true-成功（获得下单资格）；false-失败（库存不足或已售罄）
      */
     boolean subtractionActivitySkuStock(Long sku, String cacheKey, Date endDateTime);
+
+    /**
+     * 物理库存置零同步
+     * 场景：当 Redis 判定库存售罄时，强行将数据库中对应的 `stock_count_surplus` 置为 0，防止数据回冲或超卖。
+     *
+     * @param sku 商品唯一标识 SKU
+     */
+    void zeroOutActivitySkuStock(Long sku);
+
+    /**
+     * 物理库存异步扣减（单条更新）
+     *
+     * @param sku 商品唯一标识 SKU
+     */
+    void subtractionActivitySkuStock(Long sku);
+
+    /**
+     * 物理库存批量同步更新
+     * 场景：Job 消费队列时，将本周期内合并后的扣减量 `count` 一次性更新至数据库，提升 IO 效率。
+     *
+     * @param sku   商品唯一标识 SKU
+     * @param count 本次需要扣减的累积库存增量
+     */
+    void updateActivitySkuStockBatch(Long sku, Integer count);
+
+    /**
+     * 设置 SKU 售罄标识位（防止缓存击穿）
+     * * 业务意图：在 Redis 中标记该 SKU 已售罄。
+     * 后续请求在进入预扣减逻辑前先检查此标识，避免无效的 DECR 操作。
+     *
+     * @param sku 商品唯一标识 SKU
+     */
+    void setSkuStockZeroFlag(Long sku);
+
+    /**
+     * 检查当前 SKU 是否已处于售罄熔断状态
+     *
+     * @param sku 商品唯一标识 SKU
+     * @return true-已售罄，直接拦截请求；false-仍有库存
+     */
+    boolean isSkuStockZero(Long sku);
 }

@@ -12,12 +12,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 
 /**
+ * @author cyh
  * @description 抽奖活动抽象类
  * 1. 职责：定义创建抽奖活动订单的标准模板流程，编排基础信息查询、规则校验、聚合构建及持久化操作。
  * 2. 设计模式：模板方法模式。通过 {@link #createSkuRechargeOrder} 定义骨架，具体的聚合构建和保存交由子类实现。
  * 3. 支撑类继承：继承自 {@link RaffleActivitySupport}，获取基础数据的查询能力和规则链工厂支撑。
- *
- * @author cyh
  * @date 2026/01/27
  */
 @Slf4j
@@ -26,6 +25,7 @@ public abstract class AbstractRaffleActivity extends RaffleActivitySupport imple
     /**
      * 构造方法，注入领域仓储与规则链工厂
      * * @param activityRepository 活动领域仓储接口
+     *
      * @param defaultActivityChainFactory 活动规则责任链工厂
      */
     public AbstractRaffleActivity(IActivityRepository activityRepository,
@@ -60,12 +60,13 @@ public abstract class AbstractRaffleActivity extends RaffleActivitySupport imple
         ActivityEntity activityEntity = queryRaffleActivityByActivityId(activitySkuEntity.getActivityId());
 
         // 2.3 获取次数限制配置（总次数、日/月限额）
-        ActivityCountEntity activityCountEntity = queryRaffleActivityCountByActivityCountId(activitySkuEntity.getActivityCountId());
+        ActivityCountEntity activityCountEntity =
+                queryRaffleActivityCountByActivityCountId(activitySkuEntity.getActivityCountId());
 
         // 3. 规则校验：利用责任链模式对当前请求进行业务合规性过滤
         // 包含：活动状态校验、库存校验、风控校验等。如果校验不通过，内部会抛出异常中断流程。
         IActionChain actionChain = defaultActivityChainFactory.openActionChain();
-        boolean success = actionChain.action(activitySkuEntity, activityEntity, activityCountEntity);
+        actionChain.action(activitySkuEntity, activityEntity, activityCountEntity);
 
         // 4. 构建订单聚合对象：由子类根据具体业务场景实现（如不同类型的活动可能有不同的账户处理方式）
         // 聚合对象确保了订单记录与账户变动在领域模型上的一致性。
@@ -77,8 +78,8 @@ public abstract class AbstractRaffleActivity extends RaffleActivitySupport imple
         doSaveOrder(createOrderAggregate);
 
         // 6. 返回订单流水单号，完成充值/下单流程
-        log.info("创建抽奖活动订单成功：userId:{} sku:{} orderId:{}",
-                userId, sku, createOrderAggregate.getActivityOrderEntity().getOrderId());
+        log.info("创建抽奖活动订单成功：userId:{} sku:{} orderId:{}", userId, sku, createOrderAggregate
+                .getActivityOrderEntity().getOrderId());
         return createOrderAggregate.getActivityOrderEntity().getOrderId();
     }
 

@@ -37,22 +37,7 @@ public class RaffleOrderTest {
     }
 
     /**
-     * 场景1：基础下单流程测试
-     * 验证最基本的入参到订单生成的全链路是否通畅。
-     */
-    @Test
-    public void test_createRaffleActivityOrder() {
-        SkuRechargeEntity activityShopCartEntity = new SkuRechargeEntity();
-        activityShopCartEntity.setUserId("cyh");
-        activityShopCartEntity.setSku(9011L);
-        // 调用下单服务
-        // String orderId = raffleOrder.createSkuRechargeOrder(activityShopCartEntity);
-        // log.info("测试结果：{}", orderId);
-    }
-
-    /**
-     * 场景2：高频下单及库存扣减压力测试
-     * 验证点：
+     * 高频下单及库存扣减压力测试
      * 1. Redis 预扣库存：观察 flushall 后，下单是否能正确初始化缓存并逐次扣减。
      * 2. 数据库最终一致性：观察 MQ 异步消息是否正常消费，使 DB 库存最终与缓存同步。
      * 3. 幂等性：验证 outBusinessNo 在数据库唯一索引约束下，是否能防止重复下单。
@@ -63,7 +48,7 @@ public class RaffleOrderTest {
      */
     @Test
     public void test_createSkuRechargeOrder() throws InterruptedException {
-        for (int i = 0; i < 2; i++) {
+        for (int i = 0; i < 10; i++) {
             try {
                 SkuRechargeEntity skuRechargeEntity = new SkuRechargeEntity();
                 skuRechargeEntity.setUserId("cyh");

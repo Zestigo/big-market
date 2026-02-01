@@ -45,7 +45,7 @@ public class ActivitySKUStockActionChain extends AbstractActionChain {
         log.info("活动责任链-商品库存处理【有效期、状态、库存(sku)】开始。sku:{} activityId:{}", activitySkuEntity.getSku(),
                 activityEntity.getActivityId());
 
-        // 1. 预扣减库存：通过 activityDispatch 执行 Redis 原子性扣减
+        // 1. 预扣减库存：通过 activityDispatch 执行 Redis 原子性扣减（不再内部发消息）
         boolean status = activityDispatch.subtractionActivitySkuStock(activitySkuEntity.getSku(),
                 activityEntity.getEndDateTime());
 
@@ -53,17 +53,17 @@ public class ActivitySKUStockActionChain extends AbstractActionChain {
             log.info("活动责任链-商品库存处理成功。sku:{} activityId:{}", activitySkuEntity.getSku(),
                     activityEntity.getActivityId());
 
-            // 2. 异步同步：写入延迟队列，由底层监听异步更新数据库库存记录
+            // 2. 异步同步：【唯一入队处】写入延迟队列，由 Job 批量更新 DB
             activityRepository.activitySkuStockConsumeSendQueue(ActivitySkuStockKeyVO.builder()
                                                                                      .sku(activitySkuEntity.getSku())
                                                                                      .activityId(activityEntity.getActivityId())
                                                                                      .build());
 
-            // 3. 链路流转：当前节点成功，尝试执行责任链中的下一个节点（如果有）
+            // 3. 链路流转：当前节点成功，执行责任链下一个节点
             return next() == null || next().action(activitySkuEntity, activityEntity, activityCountEntity);
         }
 
-        // 4. 库存不足或扣减失败：抛出业务异常，阻断当前业务流程
+        // 4. 库存不足或扣减失败：抛出异常
         log.warn("活动责任链-商品库存不足。sku:{} activityId:{}", activitySkuEntity.getSku(),
                 activityEntity.getActivityId());
         throw new AppException(ResponseCode.ACTIVITY_SKU_STOCK_ERROR.getCode(),

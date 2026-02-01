@@ -1,52 +1,61 @@
 package com.c.domain.activity.event;
 
 import com.c.types.event.BaseEvent;
-import org.apache.commons.lang.RandomStringUtils;
+import org.apache.commons.lang3.RandomStringUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
 
-
 /**
+ * 活动 SKU 库存售罄领域事件
+ * 职责：
+ * 1. 定义库存清零事件的业务标准，包含消息结构与分发契约（交换机与路由键）。
+ * 2. 负责构建标准的事件消息载体，生成用于幂等校验的全局唯一事件 ID。
+ * 3. 作为领域层向基础设施层传递信号的标准化对象。
+ *
  * @author cyh
- * @description 活动SKU库存清零消息事件
- * 场景：当 Redis 预扣库存达到 0 时触发，发送 MQ 消息通知数据库同步或执行下架逻辑。
- * @date 2026/01/28
+ * @date 2026/01/31
  */
 @Component
 public class ActivitySkuStockZeroMessageEvent extends BaseEvent<Long> {
 
-    /**
-     * 从 application.yml 获取消息队列主题（Topic）。
-     * 采用配置注入而非硬编码，方便在开发、测试、生产环境之间灵活切换。
-     */
-    @Value("${spring.rabbitmq.topic.activity_sku_stock_zero}")
-    private String topic;
+    @Value("${spring.rabbitmq.topic.activity_sku_stock.exchange}")
+    private String exchange;
+
+    @Value("${spring.rabbitmq.topic.activity_sku_stock.routing-key}")
+    private String routingKey;
 
     /**
-     * 构建事件消息体
+     * 构建库存售罄事件消息体
+     * 业务逻辑：
+     * 1. 自动生成 11 位数字格式的唯一消息 ID，作为消费端防重幂等的关键凭证。
+     * 2. 记录事件产生的精确时间戳，便于后续链路耗时监控与审计。
+     * 3. 承载受影响的 SKU 标识作为事件核心负载。
      *
-     * @param sku 触发清零事件的商品 SKU 编号
-     * @return 包含唯一标识和时间戳的标准事件消息
+     * @param sku 触发售罄状态的活动商品唯一标识
+     * @return 标准化的事件消息包装对象 {@link EventMessage}
      */
     @Override
-    public BaseEvent.EventMessage<Long> buildEventMessage(Long sku) {
-        return BaseEvent.EventMessage.<Long>builder()
-                                     // 生成 11 位随机数字序列作为消息 ID，用于消费者端的幂等性校验或链路追踪
-                                     .id(RandomStringUtils.randomNumeric(11))
-                                     // 记录消息产生的时间戳
-                                     .timestamp(new Date())
-                                     // 业务数据：这里传递的是具体的 SKU 编号
-                                     .data(sku)
-                                     .build();
+    public EventMessage<Long> buildEventMessage(Long sku) {
+        return EventMessage.<Long>builder().id(RandomStringUtils.randomNumeric(11)).timestamp(new Date())
+                           .data(sku).build();
     }
 
     /**
-     * 返回当前事件绑定的主题名称
+     * 获取事件关联的交换机名称
+     * 对应 RabbitMQ 中的 Exchange，定义了消息的分发范围。
      */
     @Override
     public String topic() {
-        return topic;
+        return exchange;
+    }
+
+    /**
+     * 获取事件关联的路由键
+     * 对应 RabbitMQ 中的 RoutingKey，决定了消息在交换机内精准投递的逻辑。
+     */
+    public String routingKey() {
+        return routingKey;
     }
 }

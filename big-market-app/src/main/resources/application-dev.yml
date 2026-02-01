@@ -41,7 +41,6 @@ spring:
     # 认证账号和密码
     username: admin
     password: admin
-
     listener:
       simple:
         # 【限流配置：预取数量】
@@ -51,10 +50,13 @@ spring:
         prefetch: 1
 
     # 【自定义业务主题配置】
-    # 这里的配置会被 @Value("${spring.rabbitmq.topic.activity_sku_stock_zero}") 引用
+    # 这里的配置会被 @Value("${spring.rabbitmq.topic.activity_sku_stock}") 引用
     topic:
-      # 活动库存售罄通知的交换机/主题名称
-      activity_sku_stock_zero: activity_sku_stock_zero
+      # 给业务代码读的“变量”，我们把它设为交换机名
+      activity_sku_stock:
+        exchange: activity_sku_stock_exchange
+        routing-key: activity_sku_stock_key
+        queue: activity_sku_stock_queue
 
   # ========================= 分库分表（ShardingSphere）配置 =========================
   shardingsphere:

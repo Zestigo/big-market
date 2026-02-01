@@ -1,10 +1,10 @@
-package com.c.domain.activity.service;
+package com.c.domain.activity.service.quota;
 
 import com.c.domain.activity.model.entity.ActivityCountEntity;
 import com.c.domain.activity.model.entity.ActivityEntity;
 import com.c.domain.activity.model.entity.ActivitySkuEntity;
 import com.c.domain.activity.repositor.IActivityRepository;
-import com.c.domain.activity.service.rule.factory.DefaultActivityChainFactory;
+import com.c.domain.activity.service.quota.rule.factory.DefaultActivityChainFactory;
 
 /**
  * @author cyh
@@ -13,7 +13,7 @@ import com.c.domain.activity.service.rule.factory.DefaultActivityChainFactory;
  * 2. 设计意图：通过继承或组合的方式，为活动参与、下单、领取等业务场景提供统一的数据查询和校验能力。
  * @date 2026/01/27
  */
-public class RaffleActivitySupport {
+public class RaffleActivityAccountQuotaSupport {
 
     /**
      * 活动规则责任链工厂
@@ -33,8 +33,8 @@ public class RaffleActivitySupport {
      * @param activityRepository          活动仓储实现
      * @param defaultActivityChainFactory 规则链工厂实现
      */
-    public RaffleActivitySupport(IActivityRepository activityRepository,
-                                 DefaultActivityChainFactory defaultActivityChainFactory) {
+    public RaffleActivityAccountQuotaSupport(IActivityRepository activityRepository,
+                                             DefaultActivityChainFactory defaultActivityChainFactory) {
         this.activityRepository = activityRepository;
         this.defaultActivityChainFactory = defaultActivityChainFactory;
     }

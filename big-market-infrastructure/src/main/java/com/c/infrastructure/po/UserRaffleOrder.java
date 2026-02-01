@@ -1,6 +1,10 @@
 package com.c.infrastructure.po;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
+
 import java.util.Date;
 
 /**
@@ -11,6 +15,9 @@ import java.util.Date;
  * @date 2026/02/01
  */
 @Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
 public class UserRaffleOrder {
 
     /** 自增ID / 主键 */

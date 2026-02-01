@@ -12,5 +12,26 @@
         <result column="create_time" property="createTime"/>
         <result column="update_time" property="updateTime"/>
     </resultMap>
+    <insert id="insert" parameterType="com.c.infrastructure.po.RaffleActivityAccountDay">
+        insert into raffle_activity_account_day(user_id, activity_id, day, day_count, day_count_surplus, create_time, update_time)
+        values (#{userId}, #{activityId}, #{day}, #{dayCount}, #{dayCountSurplus}, now(), now())
+    </insert>
 
+    <update id="updateActivityAccountDaySubtractionQuota" parameterType="com.c.infrastructure.po.RaffleActivityAccountDay">
+        update raffle_activity_account_day
+        set day_count_surplus = day_count_surplus - 1,
+            update_time       = now()
+        where user_id = #{userId}
+          and activity_id = #{activityId}
+          and day = #{day}
+          and day_count_surplus > 0
+    </update>
+
+    <select id="queryActivityAccountDayByUserId" resultMap="dataMap" parameterType="com.c.infrastructure.po.RaffleActivityAccountDay" >
+        select user_id, activity_id, day, day_count, day_count_surplus
+        from raffle_activity_account_day
+        where user_id = #{userId}
+          and activity_id = #{activityId}
+          and day = #{day}
+    </select>
 </mapper>

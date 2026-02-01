@@ -1,11 +1,11 @@
-package com.c.domain.activity.service;
+package com.c.domain.activity.service.quota;
 
-import com.alibaba.fastjson.JSON;
-import com.c.domain.activity.model.aggregate.CreateOrderAggregate;
+import com.c.domain.activity.model.aggregate.CreateQuotaOrderAggregate;
 import com.c.domain.activity.model.entity.*;
 import com.c.domain.activity.repositor.IActivityRepository;
-import com.c.domain.activity.service.rule.IActionChain;
-import com.c.domain.activity.service.rule.factory.DefaultActivityChainFactory;
+import com.c.domain.activity.service.IRaffleActivityAccountQuotaService;
+import com.c.domain.activity.service.quota.rule.IActionChain;
+import com.c.domain.activity.service.quota.rule.factory.DefaultActivityChainFactory;
 import com.c.types.enums.ResponseCode;
 import com.c.types.exception.AppException;
 import lombok.extern.slf4j.Slf4j;
@@ -15,12 +15,12 @@ import org.apache.commons.lang3.StringUtils;
  * @author cyh
  * @description 抽奖活动抽象类
  * 1. 职责：定义创建抽奖活动订单的标准模板流程，编排基础信息查询、规则校验、聚合构建及持久化操作。
- * 2. 设计模式：模板方法模式。通过 {@link #createSkuRechargeOrder} 定义骨架，具体的聚合构建和保存交由子类实现。
- * 3. 支撑类继承：继承自 {@link RaffleActivitySupport}，获取基础数据的查询能力和规则链工厂支撑。
+ * 2. 设计模式：模板方法模式。通过 {@link #createOrder} 定义骨架，具体的聚合构建和保存交由子类实现。
+ * 3. 支撑类继承：继承自 {@link RaffleActivityAccountQuotaSupport}，获取基础数据的查询能力和规则链工厂支撑。
  * @date 2026/01/27
  */
 @Slf4j
-public abstract class AbstractRaffleActivity extends RaffleActivitySupport implements IRaffleOrder {
+public abstract class AbstractRaffleActivityAccountQuota extends RaffleActivityAccountQuotaSupport implements IRaffleActivityAccountQuotaService {
 
     /**
      * 构造方法，注入领域仓储与规则链工厂
@@ -28,8 +28,8 @@ public abstract class AbstractRaffleActivity extends RaffleActivitySupport imple
      *
      * @param defaultActivityChainFactory 活动规则责任链工厂
      */
-    public AbstractRaffleActivity(IActivityRepository activityRepository,
-                                  DefaultActivityChainFactory defaultActivityChainFactory) {
+    public AbstractRaffleActivityAccountQuota(IActivityRepository activityRepository,
+                                              DefaultActivityChainFactory defaultActivityChainFactory) {
         super(activityRepository, defaultActivityChainFactory);
     }
 
@@ -42,7 +42,7 @@ public abstract class AbstractRaffleActivity extends RaffleActivitySupport imple
      * @throws AppException 业务异常，如参数错误、规则拦截等
      */
     @Override
-    public String createSkuRechargeOrder(SkuRechargeEntity skuRechargeEntity) {
+    public String createOrder(SkuRechargeEntity skuRechargeEntity) {
         // 1. 参数校验：确保基础业务字段不为空，保障后续查询的安全性
         String userId = skuRechargeEntity.getUserId();
         Long sku = skuRechargeEntity.getSku();
@@ -70,31 +70,31 @@ public abstract class AbstractRaffleActivity extends RaffleActivitySupport imple
 
         // 4. 构建订单聚合对象：由子类根据具体业务场景实现（如不同类型的活动可能有不同的账户处理方式）
         // 聚合对象确保了订单记录与账户变动在领域模型上的一致性。
-        CreateOrderAggregate createOrderAggregate = buildOrderAggregate(skuRechargeEntity,
+        CreateQuotaOrderAggregate createQuotaOrderAggregate = buildOrderAggregate(skuRechargeEntity,
                 activitySkuEntity, activityEntity, activityCountEntity);
 
         // 5. 订单持久化：执行数据库写入操作，将聚合对象中的数据保存至对应表中
         // 该步骤通常伴随着数据库事务，确保订单与账户数据的原子性更新。
-        doSaveOrder(createOrderAggregate);
+        doSaveOrder(createQuotaOrderAggregate);
 
         // 6. 返回订单流水单号，完成充值/下单流程
-        log.info("创建抽奖活动订单成功：userId:{} sku:{} orderId:{}", userId, sku, createOrderAggregate
+        log.info("创建抽奖活动订单成功：userId:{} sku:{} orderId:{}", userId, sku, createQuotaOrderAggregate
                 .getActivityOrderEntity().getOrderId());
-        return createOrderAggregate.getActivityOrderEntity().getOrderId();
+        return createQuotaOrderAggregate.getActivityOrderEntity().getOrderId();
     }
 
     /**
      * 构建订单聚合对象（抽象方法，由子类实现）
-     * 职责：将查询到的各种实体进行业务组装，封装进 {@link CreateOrderAggregate} 聚合中。
+     * 职责：将查询到的各种实体进行业务组装，封装进 {@link CreateQuotaOrderAggregate} 聚合中。
      */
-    protected abstract CreateOrderAggregate buildOrderAggregate(SkuRechargeEntity skuRechargeEntity,
-                                                                ActivitySkuEntity activitySkuEntity,
-                                                                ActivityEntity activityEntity,
-                                                                ActivityCountEntity activityCountEntity);
+    protected abstract CreateQuotaOrderAggregate buildOrderAggregate(SkuRechargeEntity skuRechargeEntity,
+                                                                     ActivitySkuEntity activitySkuEntity,
+                                                                     ActivityEntity activityEntity,
+                                                                     ActivityCountEntity activityCountEntity);
 
     /**
      * 保存订单及相关账户操作（抽象方法，由子类实现）
      * 职责：对接基础设施层，完成数据的落库存储。
      */
-    protected abstract void doSaveOrder(CreateOrderAggregate createOrderAggregate);
+    protected abstract void doSaveOrder(CreateQuotaOrderAggregate createQuotaOrderAggregate);
 }

@@ -1,4 +1,4 @@
-package com.c.domain.activity.service.rule;
+package com.c.domain.activity.service.quota.rule;
 
 /**
  * 规则过滤链抽象基类

@@ -3,7 +3,7 @@
 <mapper namespace="com.c.infrastructure.dao.IStrategyDao">
 
     <resultMap id="dataMap" type="com.c.infrastructure.po.Strategy">
-        <result column="id" property="id"/>
+        <id column="id" property="id"/>
         <result column="strategy_id" property="strategyId"/>
         <result column="strategy_desc" property="strategyDesc"/>
         <result column="rule_models" property="ruleModels"/>

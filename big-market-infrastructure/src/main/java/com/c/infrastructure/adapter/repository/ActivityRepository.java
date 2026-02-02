@@ -470,11 +470,6 @@ public class ActivityRepository implements IActivityRepository {
 
                 }
 
-                // 【核心逻辑】同步更新总账户表中的“月镜像额度”，维持总表视图的参考价值
-                raffleActivityAccountDao.updateActivityAccountMonthSurplusImageQuota(RaffleActivityAccount
-                        .builder().userId(userId).activityId(activityId)
-                        .monthCountSurplus(activityAccountEntity.getMonthCountSurplus()).build());
-
                 // --- 步骤 3：处理日维度账户额度 (按需初始化或扣减) ---
                 if (createPartakeOrderAggregate.isExistAccountDay()) {
                     // 已存在当日记录，执行原子扣减
@@ -499,11 +494,6 @@ public class ActivityRepository implements IActivityRepository {
                                                                                .build());
 
                 }
-
-                // 【核心逻辑】同步更新总账户表中的“日镜像额度”
-                raffleActivityAccountDao.updateActivityAccountDaySurplusImageQuota(RaffleActivityAccount
-                        .builder().userId(userId).activityId(activityId)
-                        .dayCountSurplus(activityAccountEntity.getDayCountSurplus()).build());
 
                 // --- 步骤 4：落库抽奖参与订单 (UserRaffleOrder) ---
                 // 这是后续执行抽奖策略的唯一合法依据，必须与额度扣减处于同一事务中

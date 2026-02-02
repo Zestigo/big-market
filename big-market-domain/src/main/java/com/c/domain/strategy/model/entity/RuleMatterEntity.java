@@ -6,22 +6,35 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * 规则物质实体
- *
  * @author cyh
+ * @description 规则物料实体：封装决策引擎执行时所需的上下文参考信息
  * @date 2026/01/18
  */
-@Data // Lombok：自动生成get/set/toString/hashCode等
-@Builder // 建造者模式：方便快速创建对象（如 StrategyAwardEntity.builder().strategyId(1L).build()）
-@AllArgsConstructor // 全参构造
-@NoArgsConstructor // 无参构造
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
 public class RuleMatterEntity {
-     /** 用户ID */
+
+    /** 用户唯一标识：用于校验用户抽奖资格或频次限制 */
     private String userId;
-    /** 策略ID */
+
+    /** 策略唯一标识：关联具体的抽奖方案配置 */
     private Long strategyId;
-    /** 抽奖奖品ID【规则类型为策略，则不需要奖品ID】 */
+
+    /**
+     * 抽奖奖品ID
+     * 注意：若规则作用于策略层面（如前置拦截），此字段可不传
+     */
     private Integer awardId;
-    /** 抽奖规则类型【rule_random - 随机值计算、rule_lock - 抽奖几次后解锁、rule_luck_award - 幸运奖(兜底奖品)】 */
+
+    /**
+     * 抽奖规则模型标识
+     * 常用模型示例：
+     * 1. rule_random：随机概率计算规则
+     * 2. rule_lock：基于累计抽奖次数的解锁规则
+     * 3. rule_luck_award：用于库存不足时的兜底保障规则
+     */
     private String ruleModel;
+
 }

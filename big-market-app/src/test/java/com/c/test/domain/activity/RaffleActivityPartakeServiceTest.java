@@ -44,8 +44,6 @@ public class RaffleActivityPartakeServiceTest {
         partakeRaffleActivityEntity.setUserId("cyh");
         partakeRaffleActivityEntity.setActivityId(100301L);
 
-        //
-
         // 2. 调用参与活动核心接口
         // 此步涉及：DB 事务操作（账户扣减 + 订单写入）、Redis 预校验等。
         UserRaffleOrderEntity userRaffleOrder = raffleActivityPartakeService.createOrder(partakeRaffleActivityEntity);

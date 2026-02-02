@@ -16,4 +16,10 @@
         <result column="update_time" property="updateTime"/>
     </resultMap>
 
+    <insert id="insert" parameterType="com.c.infrastructure.po.UserAwardRecord">
+        insert into user_award_record(user_id, activity_id, strategy_id, order_id, award_id, award_title, award_time, award_state, create_time,
+                                      update_time)
+        values (#{userId}, #{activityId}, #{strategyId}, #{orderId}, #{awardId}, #{awardTitle}, #{awardTime}, #{awardState}, now(), now())
+    </insert>
+
 </mapper>

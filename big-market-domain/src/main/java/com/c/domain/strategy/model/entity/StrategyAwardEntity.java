@@ -4,19 +4,45 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
 import java.math.BigDecimal;
 
-@Data // Lombok：自动生成get/set/toString/hashCode等
-@Builder // 建造者模式：方便快速创建对象（如 StrategyAwardEntity.builder().strategyId(1L).build()）
-@AllArgsConstructor // 全参构造
-@NoArgsConstructor // 无参构造
+/**
+ * @author cyh
+ * @description 策略奖品实体：记录特定抽奖策略下各奖品的配置、库存及概率
+ * @date 2026/02/02
+ */
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
 public class StrategyAwardEntity {
-        private Long strategyId; // 策略ID（比如“春节抽奖活动”的策略ID）
-        private Integer awardId; // 奖项ID（比如1=一等奖，2=二等奖）
-        private Integer awardCount; // 奖项总数量（比如一等奖总共10个）
-        private Integer awardCountSurplus; // 奖项剩余数量（比如一等奖还剩3个）
-        private BigDecimal awardRate; // 奖项概率（比如0.05=5%中奖概率）
-        private Integer sort; // 奖项概率（比如0.05=5%中奖概率）
-        private String awardTitle;
-        private String awardSubtitle;
+
+    /** 策略ID */
+    private Long strategyId;
+
+    /** 奖品ID（关联自奖品配置表） */
+    private Integer awardId;
+
+    /** 奖品标题（如：华为 Mate 70 Pro） */
+    private String awardTitle;
+
+    /** 奖品副标题（如：颜色随机，抽中后联系客服领取） */
+    private String awardSubtitle;
+
+    /** 奖品总数量（该策略下允许发出的最大数量） */
+    private Integer awardCount;
+
+    /** 奖品剩余库存（动态扣减后的数量） */
+    private Integer awardCountSurplus;
+
+    /**
+     * 中奖概率
+     * 使用 BigDecimal 以保证浮点数运算精度，如 0.05 代表 5%
+     */
+    private BigDecimal awardRate;
+
+    /** 排序：定义奖品在页面展现或逻辑计算中的优先级 */
+    private Integer sort;
+
 }

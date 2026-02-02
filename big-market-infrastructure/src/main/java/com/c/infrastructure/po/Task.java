@@ -1,6 +1,10 @@
 package com.c.infrastructure.po;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
+
 import java.util.Date;
 
 /**
@@ -12,13 +16,22 @@ import java.util.Date;
  * @date 2026/02/01
  */
 @Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
 public class Task {
 
     /** 任务唯一标识（UUID或分布式ID） */
     private String id;
 
+    /** 活动ID */
+    private String userId;
+
     /** 消息主题（MQ Topic） */
     private String topic;
+
+    /** 消息编号 */
+    private String messageId;
 
     /** 消息主体（通常为 JSON 格式的业务报文） */
     private String message;

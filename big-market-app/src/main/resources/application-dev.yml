@@ -41,6 +41,9 @@ spring:
     # 认证账号和密码
     username: admin
     password: admin
+    # 开启发布确认，配合 EventPublisher 里的 CorrelationData
+    publisher-confirm-type: correlated
+    publisher-returns: true
     listener:
       simple:
         # 【限流配置：预取数量】
@@ -57,7 +60,10 @@ spring:
         exchange: activity_sku_stock_exchange
         routing-key: activity_sku_stock_key
         queue: activity_sku_stock_queue
-
+      send_award:
+        exchange: send_award_exchange
+        routing-key: send_award_routing_key
+        queue: send_award_queue
   # ========================= 分库分表（ShardingSphere）配置 =========================
   shardingsphere:
     # 1. 数据源配置

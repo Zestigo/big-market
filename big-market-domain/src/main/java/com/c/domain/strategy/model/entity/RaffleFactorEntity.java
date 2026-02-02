@@ -5,13 +5,21 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-@Data // Lombok：自动生成get/set/toString/hashCode等
-@Builder // 建造者模式：方便快速创建对象（如 StrategyAwardEntity.builder().strategyId(1L).build()）
-@AllArgsConstructor // 全参构造
-@NoArgsConstructor // 无参构造
+/**
+ * @author cyh
+ * @description 抽奖因子实体：封装本次抽奖执行所需的关键触发参数
+ * @date 2026/02/02
+ */
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
 public class RaffleFactorEntity {
-    /** 用户ID */
+
+    /** 参与抽奖的用户唯一标识 */
     private String userId;
-    /** 策略ID */
+
+    /** 本次抽奖所关联的策略模型 ID */
     private Long strategyId;
+
 }

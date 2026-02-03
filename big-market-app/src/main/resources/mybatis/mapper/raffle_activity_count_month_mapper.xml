@@ -12,6 +12,7 @@
         <result column="create_time" property="createTime"/>
         <result column="update_time" property="updateTime"/>
     </resultMap>
+
     <insert id="insert" parameterType="com.c.infrastructure.po.RaffleActivityAccountMonth">
         insert into raffle_activity_account_month(user_id, activity_id, month, month_count, month_count_surplus, create_time, update_time)
         values (#{userId}, #{activityId}, #{month}, #{monthCount}, #{monthCountSurplus}, now(), now())
@@ -34,6 +35,5 @@
           and month = #{month}
           and month_count_surplus > 0
     </update>
-
 
 </mapper>

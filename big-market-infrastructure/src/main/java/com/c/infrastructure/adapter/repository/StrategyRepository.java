@@ -52,6 +52,10 @@ public class StrategyRepository implements IStrategyRepository {
     private IRuleTreeNodeDao ruleTreeNodeDao;
     @Resource
     private IRuleTreeNodeLineDao ruleTreeNodeLineDao;
+    @Resource
+    private IRaffleActivityDao raffleActivityDao;
+    @Resource
+    private IRaffleActivityAccountDayDao raffleActivityAccountDayDao;
 
     /**
      * 查询策略关联的奖品列表
@@ -101,8 +105,8 @@ public class StrategyRepository implements IStrategyRepository {
      * 存储抽奖概率查找映射表（装配阶段关键步骤）
      * 核心设计：将概率计算转化为 O(1) 的索引查找，解决复杂区间计算在高并发下的性能瓶颈。
      *
-     * @param key 策略装配标识
-     * @param rateRange 概率分母（随机数上限，如 10000）
+     * @param key                                  策略装配标识
+     * @param rateRange                            概率分母（随机数上限，如 10000）
      * @param shuffleStrategyAwardSearchRateTables 打乱后的奖品 ID 分布映射（随机位 -> 奖品ID）
      */
     @Override
@@ -113,7 +117,8 @@ public class StrategyRepository implements IStrategyRepository {
 
         // 2. 利用 Redis Hash 结构存储映射表，Key 为随机数，Value 为对应的奖品 ID
         // 抽奖时只需：Random(rateRange) -> GetFromHash(RandomValue) -> 获取中奖奖品
-        Map<Integer, Integer> cacheRateTable = redisService.getMap(Constants.RedisKey.STRATEGY_RATE_TABLE_KEY + key);
+        Map<Integer, Integer> cacheRateTable =
+                redisService.getMap(Constants.RedisKey.STRATEGY_RATE_TABLE_KEY + key);
         cacheRateTable.putAll(shuffleStrategyAwardSearchRateTables);
     }
 
@@ -138,7 +143,7 @@ public class StrategyRepository implements IStrategyRepository {
     /**
      * 执行概率索引查询：根据生成的随机数获取对应中奖奖品
      *
-     * @param key 策略装配标识
+     * @param key     策略装配标识
      * @param rateKey 生成的随机索引值
      * @return 奖品ID
      */
@@ -151,8 +156,8 @@ public class StrategyRepository implements IStrategyRepository {
      * 查询策略规则的具体配置值
      *
      * @param strategyId 策略ID
-     * @param awardId 奖品ID（可为 null，表示通用策略规则）
-     * @param ruleModel 规则模型标识（如：rule_lock, rule_luck_award）
+     * @param awardId    奖品ID（可为 null，表示通用策略规则）
+     * @param ruleModel  规则模型标识（如：rule_lock, rule_luck_award）
      * @return 规则配置内容（通常为 JSON 或字符串标识）
      */
     @Override
@@ -195,7 +200,7 @@ public class StrategyRepository implements IStrategyRepository {
      * 获取特定的策略规则实体详情
      *
      * @param strategyId 策略ID
-     * @param ruleModel 规则标识
+     * @param ruleModel  规则标识
      * @return 包含规则类型、描述、配置值的实体对象
      */
     @Override
@@ -234,7 +239,8 @@ public class StrategyRepository implements IStrategyRepository {
         // 2. 数据库读取：树干、树叶（节点）、脉络（连线）
         RuleTree ruleTree = ruleTreeDao.queryRuleTreeByTreeId(treeId);
         List<RuleTreeNode> ruleTreeNodes = ruleTreeNodeDao.queryRuleTreeNodeListByTreeId(treeId);
-        List<RuleTreeNodeLine> ruleTreeNodeLines = ruleTreeNodeLineDao.queryRuleTreeNodeLineListByTreeId(treeId);
+        List<RuleTreeNodeLine> ruleTreeNodeLines =
+                ruleTreeNodeLineDao.queryRuleTreeNodeLineListByTreeId(treeId);
 
         // 3. 建立连线索引：按起始节点分组连线
         Map<String, List<RuleTreeNodeLineVO>> treeNodeLineVOMap = new HashMap<>();
@@ -284,7 +290,7 @@ public class StrategyRepository implements IStrategyRepository {
     /**
      * 缓存奖品库存总量（初始化）
      *
-     * @param cacheKey 缓存键 (strategy_award_count_key + strategyId + awardId)
+     * @param cacheKey   缓存键 (strategy_award_count_key + strategyId + awardId)
      * @param awardCount 初始库存值
      */
     @Override
@@ -342,7 +348,10 @@ public class StrategyRepository implements IStrategyRepository {
     }
 
     /**
-     * 从异步队列提取待处理的库存流水（供 Job 节点调用）
+     * 【异步消费】从 Redis 阻塞队列中获取待处理的库存扣减流水
+     * * 该方法由分布式调度任务（Job）调用，用于将缓存中的预扣减结果异步同步至数据库。
+     *
+     * @return 策略奖品库存键值对象，若队列为空则返回 null
      */
     @Override
     public StrategyAwardStockKeyVO takeQueueValue() {
@@ -352,7 +361,11 @@ public class StrategyRepository implements IStrategyRepository {
     }
 
     /**
-     * 将 Redis 预扣减结果持久化同步至数据库
+     * 【持久化】更新数据库中的奖品库存
+     * * 将异步队列消费出的扣减结果，正式更新到 DB 中，实现库存的最终一致性。
+     *
+     * @param strategyId 策略ID
+     * @param awardId    奖品ID
      */
     @Override
     public void updateStrategyAwardStock(Long strategyId, Integer awardId) {
@@ -361,7 +374,12 @@ public class StrategyRepository implements IStrategyRepository {
     }
 
     /**
-     * 检索单个奖品实体信息（优先从缓存镜像中读取）
+     * 【查询】获取奖品配置实体（带缓存回源机制）
+     * “先缓存后数据库”原则：优先从 Redis 镜像中读取，若缓存缺失则查询 DB 并执行冷热数据同步（回填缓存）。
+     *
+     * @param strategyId 策略ID
+     * @param awardId    奖品ID
+     * @return 奖品配置实体对象
      */
     @Override
     public StrategyAwardEntity queryStrategyAwardEntity(Long strategyId, Integer awardId) {
@@ -369,19 +387,61 @@ public class StrategyRepository implements IStrategyRepository {
         StrategyAwardEntity strategyAwardEntity = redisService.getValue(cacheKey);
         if (strategyAwardEntity != null) return strategyAwardEntity;
 
+        // 缓存缺失，回源数据库
         StrategyAward strategyAward = strategyAwardDao.queryStrategyAwardEntity(StrategyAward.builder()
                                                                                              .strategyId(strategyId)
                                                                                              .awardId(awardId)
                                                                                              .build());
+
+        // 转换 PO 为 Entity，并同步至 Redis
         strategyAwardEntity = StrategyAwardEntity.builder().strategyId(strategyAward.getStrategyId())
-                                                 .awardId(strategyAward.getAwardId())
-                                                 .awardCount(strategyAward.getAwardCount())
+                                                 .awardId(awardId).awardCount(strategyAward.getAwardCount())
                                                  .awardCountSurplus(strategyAward.getAwardCountSurplus())
                                                  .awardRate(strategyAward.getAwardRate())
                                                  .sort(strategyAward.getSort())
                                                  .awardTitle(strategyAward.getAwardTitle())
                                                  .awardSubtitle(strategyAward.getAwardSubtitle()).build();
+
         redisService.setValue(cacheKey, strategyAwardEntity);
         return strategyAwardEntity;
+    }
+
+    /**
+     * 根据活动ID查询关联的策略ID
+     *
+     * @param activityId 活动ID
+     * @return 策略ID
+     */
+    @Override
+    public Long queryStrategyIdByActivityId(Long activityId) {
+        return raffleActivityDao.queryStrategyIdByActivityId(activityId);
+    }
+
+    /**
+     * 查询用户今日已参与抽奖的次数
+     * * 计算逻辑：今日总频次限额 - 今日剩余可用额度 = 今日已消耗次数。
+     *
+     * @param userId     用户ID
+     * @param strategyId 策略ID
+     * @return 今日已抽奖次数
+     */
+    @Override
+    public Integer queryTodayUserRaffleCount(String userId, Long strategyId) {
+        // 1. 转换：策略ID -> 活动ID
+        Long activityId = raffleActivityDao.queryActivityIdByStrategyId(strategyId);
+
+        // 2. 构建日账单查询参数（自动获取当前日期）
+        RaffleActivityAccountDay raffleActivityAccountDay = RaffleActivityAccountDay.builder().userId(userId)
+                                                                                    .activityId(activityId)
+                                                                                    .build();
+        raffleActivityAccountDay.setDay(raffleActivityAccountDay.currentDay());
+
+        // 3. 查询用户日账户记录
+        raffleActivityAccountDay =
+                raffleActivityAccountDayDao.queryActivityAccountDayByUserId(raffleActivityAccountDay);
+        if (null == raffleActivityAccountDay) return 0;
+
+        // 4. 返回差值：总额度 - 剩余额度
+        return raffleActivityAccountDay.getDayCount() - raffleActivityAccountDay.getDayCountSurplus();
     }
 }

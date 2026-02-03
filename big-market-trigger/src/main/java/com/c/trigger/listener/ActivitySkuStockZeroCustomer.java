@@ -30,19 +30,16 @@ public class ActivitySkuStockZeroCustomer {
     /**
      * 消费库存售罄信号消息
      *
-     * @param message 消息体，包含售罄的商品 SKU 信息
+     * @param eventMessage 消息体，包含售罄的商品 SKU 信息
      */
     @RabbitListener(queues = "${spring.rabbitmq.topic.activity_sku_stock.queue}")
-    public void listener(String message) {
+    public void listener(BaseEvent.EventMessage<Long> eventMessage) {
         try {
-            // 1. 解析消息获取 SKU
-            BaseEvent.EventMessage<Long> eventMessage = JSON.parseObject(message, new TypeReference<BaseEvent.EventMessage<Long>>(){}.getType());
+            // 无需手动 JSON.parseObject，Spring 已经帮你转好了
             Long sku = eventMessage.getData();
 
-            // 2. 强刷数据库（置零）
+            // 执行业务逻辑
             skuStock.zeroOutActivitySkuStock(sku);
-
-            // 3. 【核心步骤】设置 Redis 售罄拦截标识
             skuStock.setSkuStockZeroFlag(sku);
 
             log.info("【Trigger】实时清零与拦截标识设置成功 sku:{}", sku);

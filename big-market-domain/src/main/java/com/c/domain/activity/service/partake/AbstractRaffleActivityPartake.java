@@ -14,17 +14,18 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.Date;
 
 /**
- * 抽奖活动参与抽象类
- * 1. 流程编排：定义参与活动、扣减额度、生成订单的标准算法骨架。
- * 2. 公共校验：统一处理活动状态、有效期等与具体账户类型无关的通用逻辑。
- * 3. 事务边界：明确一个参与行为作为一个聚合根的原子性操作，交由仓储层完成持久化。
+ * 抽奖活动参与抽象类（领域核心服务）
+ * 1. 流程编排：利用模板方法模式定义“参与活动、额度校验、扣减、下单”的标准骨架。
+ * 2. 准入校验：统一处理与账户无关的全局活动规则（状态、有效期等）。
+ * 3. 领域一致性：通过聚合根 (Aggregate) 将订单生成与额度变更绑定，保障仓储操作的事务原子性。
  *
  * @author cyh
- * @date 2026/02/01
+ * @since 2026/02/01
  */
 @Slf4j
 public abstract class AbstractRaffleActivityPartake implements IRaffleActivityPartakeService {
 
+    /** 抽奖活动仓储服务：处理领域对象的持久化及跨表查询 */
     protected final IActivityRepository activityRepository;
 
     public AbstractRaffleActivityPartake(IActivityRepository activityRepository) {
@@ -32,87 +33,95 @@ public abstract class AbstractRaffleActivityPartake implements IRaffleActivityPa
     }
 
     /**
-     * 创建抽奖参与订单（模板方法）
-     * 遵循标准的活动参与流水线：查询 -> 校验 -> 幂等检查 -> 额度过滤 -> 订单构建 -> 事务持久化。
+     * 创建抽奖参与订单（便利入参方式）
      *
-     * @param partakeRaffleActivityEntity 参与抽奖活动请求实体对象
-     * @return UserRaffleOrderEntity 用户抽奖订单实体
+     * @param userId      用户唯一 ID
+     * @param activityId  活动配置 ID
+     * @return UserRaffleOrderEntity 用户抽奖参与凭证
+     */
+    @Override
+    public UserRaffleOrderEntity createOrder(String userId, Long activityId) {
+        return createOrder(PartakeRaffleActivityEntity.builder()
+                                                      .userId(userId)
+                                                      .activityId(activityId)
+                                                      .build());
+    }
+
+    /**
+     * 创建抽奖参与订单（核心模板方法）
+     * 遵循标准的活动参与流水线：查询 -> 全局准入校验 -> 业务重入检查 -> 子类额度过滤 -> 订单封装 -> 持久化聚合。
+     *
+     * @param partakeRaffleActivityEntity 参与活动请求实体
+     * @return UserRaffleOrderEntity 创建成功的参与凭证
+     * @throws AppException 业务逻辑异常（状态错误、日期失效、额度不足等）
      */
     @Override
     public UserRaffleOrderEntity createOrder(PartakeRaffleActivityEntity partakeRaffleActivityEntity) {
-        // 0. 基础上下文信息初始化
+        // [1] 上下文环境初始化
         String userId = partakeRaffleActivityEntity.getUserId();
         Long activityId = partakeRaffleActivityEntity.getActivityId();
         Date currentDate = new Date();
 
-        // 1. 活动基础信息查询与前置校验（准入检查）
+        // [2] 准入条件过滤：查询活动元数据并执行全局状态检查
         ActivityEntity activityEntity = activityRepository.queryRaffleActivityByActivityId(activityId);
 
-        // [校验] 活动状态：必须为开启 (open) 状态，防止在活动暂停或下线期间非法参与
+        // 校验：活动状态（非开启状态不可参与）
         if (!ActivityStateVO.open.equals(activityEntity.getState())) {
             throw new AppException(ResponseCode.ACTIVITY_STATE_ERROR.getCode(),
                     ResponseCode.ACTIVITY_STATE_ERROR.getInfo());
         }
 
-        // [校验] 活动有效期：当前时间必须在活动定义的 [开始时间, 结束时间] 闭区间内
-        if (activityEntity.getBeginDateTime().after(currentDate) || activityEntity.getEndDateTime()
-                                                                                  .before(currentDate)) {
+        // 校验：活动有效期（当前时间必须在活动生效期内）
+        if (activityEntity.getBeginDateTime().after(currentDate) ||
+                activityEntity.getEndDateTime().before(currentDate)) {
             throw new AppException(ResponseCode.ACTIVITY_DATE_ERROR.getCode(),
                     ResponseCode.ACTIVITY_DATE_ERROR.getInfo());
         }
 
-        // 2. 幂等性检查：查询用户是否存在“已创建但未消耗”的参与订单
-        // 设计意图：防止网络抖动导致的重复下单导致额度超扣，实现请求重入。
-        UserRaffleOrderEntity userRaffleOrderEntity =
-                activityRepository.queryNoUsedRaffleOrder(partakeRaffleActivityEntity);
+        // [3] 幂等性与重入性检查
+        // 逻辑：查询是否存在“已申请但未实际消耗”的订单，防止因重试或并发请求导致额度被多次扣减
+        UserRaffleOrderEntity userRaffleOrderEntity = activityRepository.queryNoUsedRaffleOrder(partakeRaffleActivityEntity);
         if (null != userRaffleOrderEntity) {
-            log.info("触发幂等逻辑：用户重复请求下单，返回已有订单。userId:{} activityId:{} orderId:{}", userId, activityId,
-                    userRaffleOrderEntity.getOrderId());
+            log.info("触发请求重入防护：userId:{} activityId:{} 已存在未消耗订单:{}", userId, activityId, userRaffleOrderEntity.getOrderId());
             return userRaffleOrderEntity;
         }
 
-        // 3. 账户额度过滤（抽象方法：由子类实现具体的分级账户校验逻辑，如总、月、日账户）
-        // 执行此步代表用户进入了真实的“扣减额度”环节。
-        CreatePartakeOrderAggregate createPartakeOrderAggregate = doFilterAccount(userId, activityId,
-                currentDate);
+        // [4] 账户额度差异化校验（钩子方法：具体计算逻辑由子类定义，如判断总余额/日限额等）
+        // 执行至此表明已通过基础校验，准备进入账务变动流程
+        CreatePartakeOrderAggregate createPartakeOrderAggregate = doFilterAccount(userId, activityId, currentDate);
 
-        // 4. 构建抽奖订单（抽象方法：由子类实现，包含订单 ID 生成及快照填充）
+        // [5] 领域订单构建
+        // 封装本次参与的上下文信息，如订单号生成、关联策略 ID 镜像等
         UserRaffleOrderEntity userRaffleOrder = buildUserRaffleOrder(userId, activityId, currentDate);
 
-        // 5. 组装参与行为聚合根
-        // 将参与所需的账户变更信息与新生成的订单信息绑定，作为领域内的一个事务单元。
+        // [6] 聚合根组装与持久化
+        // 确保“额度扣减”与“订单落库”作为单个事务单元处理，由仓储层适配器（Repository Adapter）保障原子性
         createPartakeOrderAggregate.setUserRaffleOrderEntity(userRaffleOrder);
-
-        // 6. 持久化聚合对象
-        // 核心设计：在同一个数据库事务内完成账户扣减与订单写入，保障最终一致性。
         activityRepository.saveCreatePartakeOrderAggregate(createPartakeOrderAggregate);
 
-        // 7. 返回创建成功的订单信息
         return userRaffleOrder;
     }
 
     /**
-     * 子类实现：执行具体的额度账户校验与过滤逻辑
-     * 涉及：总账户、月账户、日账户的级联判断及额度计算。
+     * 子类实现：执行具体的账户额度校验与账户变动过滤
+     * 核心职责：处理复杂的级联账户判断（如：判断总余额 -> 判断日/月剩余次数），并构建聚合根的基础镜像。
      *
-     * @param userId      用户ID
-     * @param activityId  活动ID
-     * @param currentDate 当前时间
-     * @return 参与订单聚合根基础对象
+     * @param userId      用户唯一 ID
+     * @param activityId  活动配置 ID
+     * @param currentDate 系统当前时间
+     * @return 包含账户变动意图的聚合根对象
      */
-    protected abstract CreatePartakeOrderAggregate doFilterAccount(String userId, Long activityId,
-                                                                   Date currentDate);
+    protected abstract CreatePartakeOrderAggregate doFilterAccount(String userId, Long activityId, Date currentDate);
 
     /**
-     * 子类实现：构建特定业务场景下的用户抽奖参与订单
-     * 涉及：订单 ID 算法、状态设置及基础属性填充。
+     * 子类实现：构建特定业务场景下的参与订单实体
+     * 核心职责：生成唯一的全局订单号，并对活动配置进行快照化，解耦后续抽奖逻辑。
      *
-     * @param userId      用户ID
-     * @param activityId  活动ID
-     * @param currentDate 当前时间
-     * @return 初始化的抽奖订单实体
+     * @param userId      用户唯一 ID
+     * @param activityId  活动配置 ID
+     * @param currentDate 系统当前时间
+     * @return 初始化的用户抽奖订单实体
      */
-    protected abstract UserRaffleOrderEntity buildUserRaffleOrder(String userId, Long activityId,
-                                                                  Date currentDate);
+    protected abstract UserRaffleOrderEntity buildUserRaffleOrder(String userId, Long activityId, Date currentDate);
 
 }

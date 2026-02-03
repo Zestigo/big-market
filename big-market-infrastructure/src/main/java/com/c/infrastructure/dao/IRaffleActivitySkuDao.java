@@ -1,8 +1,10 @@
 package com.c.infrastructure.dao;
 
-import com.c.infrastructure.po.RaffleActivitySKU;
+import com.c.infrastructure.po.RaffleActivitySku;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+
+import java.util.List;
 
 /**
  * 活动商品 SKU 数据库访问接口
@@ -22,9 +24,9 @@ public interface IRaffleActivitySkuDao {
      * 业务场景：在活动策略装配或库存预热时，获取关联的 activityId、stockCountSurplus 等关键属性。
      *
      * @param sku 活动商品唯一标识
-     * @return {@link RaffleActivitySKU} 包含基础配置及当前剩余库存的持久化对象
+     * @return {@link RaffleActivitySku} 包含基础配置及当前剩余库存的持久化对象
      */
-    RaffleActivitySKU queryActivitySku(Long sku);
+    RaffleActivitySku queryActivitySku(Long sku);
 
     /**
      * 数据库库存原子性减一
@@ -52,4 +54,6 @@ public interface IRaffleActivitySkuDao {
      * @param count 待更新的目标库存数值或库存增量
      */
     void updateActivitySkuStockCount(@Param("sku") Long sku, @Param("count") Integer count);
+
+    List<RaffleActivitySku> queryActivitySkuListByActivityId(Long activityId);
 }

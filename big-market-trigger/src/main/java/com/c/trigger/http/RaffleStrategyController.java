@@ -1,12 +1,10 @@
-package com.c.trigger;
+package com.c.trigger.http;
 
-import com.alibaba.fastjson.JSON;
-import com.c.api.IRaffleService;
+import com.c.api.IRaffleStrategyService;
 import com.c.api.dto.RaffleAwardListRequestDTO;
 import com.c.api.dto.RaffleAwardListResponseDTO;
-import com.c.api.dto.RaffleRequestDTO;
-import com.c.api.dto.RaffleResponseDTO;
-import com.c.api.response.Response;
+import com.c.api.dto.RaffleStrategyRequestDTO;
+import com.c.api.dto.RaffleStrategyResponseDTO;
 import com.c.domain.strategy.model.entity.RaffleAwardEntity;
 import com.c.domain.strategy.model.entity.RaffleFactorEntity;
 import com.c.domain.strategy.model.entity.StrategyAwardEntity;
@@ -14,6 +12,7 @@ import com.c.domain.strategy.service.IRaffleAward;
 import com.c.domain.strategy.service.IRaffleStrategy;
 import com.c.domain.strategy.service.armory.IStrategyArmory;
 import com.c.types.enums.ResponseCode;
+import com.c.types.model.Response;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
@@ -32,8 +31,8 @@ import java.util.stream.Collectors;
 @Slf4j
 @RestController
 @CrossOrigin("${app.config.cross-origin}")
-@RequestMapping("/api/${app.config.api-version}/raffle/")
-public class RaffleController implements IRaffleService {
+@RequestMapping("/api/${app.config.api-version}/raffle/strategy/")
+public class RaffleStrategyController implements IRaffleStrategyService {
 
     @Resource
     private IStrategyArmory strategyArmory;
@@ -47,8 +46,8 @@ public class RaffleController implements IRaffleService {
      * GET: /api/v1/raffle/strategy_armory?strategyId=100006
      */
     @Override
-    @GetMapping("strategy_armory")
-    public Response<Boolean> strategyArmoy(@RequestParam Long strategyId) {
+    @GetMapping("armory")
+    public Response<Boolean> strategyArmory(@RequestParam Long strategyId) {
         try {
             log.info("抽奖策略装配开始 strategyId:{}", strategyId);
             boolean armoryStatus = strategyArmory.assembleLotteryStrategy(strategyId);
@@ -101,7 +100,7 @@ public class RaffleController implements IRaffleService {
      */
     @Override
     @PostMapping("random_raffle")
-    public Response<RaffleResponseDTO> randomRaffle(@RequestBody RaffleRequestDTO requestDTO) {
+    public Response<RaffleStrategyResponseDTO> randomRaffle(@RequestBody RaffleStrategyRequestDTO requestDTO) {
         try {
             log.info("随机抽奖开始 strategyId: {}", requestDTO.getStrategyId());
 
@@ -113,17 +112,18 @@ public class RaffleController implements IRaffleService {
             RaffleAwardEntity raffleAwardEntity = raffleStrategy.performRaffle(factor);
 
             // 3. 封装返回结果
-            RaffleResponseDTO responseDTO = RaffleResponseDTO.builder()
-                                                             .awardId(raffleAwardEntity.getAwardId())
-                                                             .awardIndex(raffleAwardEntity.getSort()).build();
+            RaffleStrategyResponseDTO responseDTO = RaffleStrategyResponseDTO.builder()
+                                                                             .awardId(raffleAwardEntity.getAwardId())
+                                                                             .awardIndex(raffleAwardEntity.getSort())
+                                                                             .build();
 
             log.info("随机抽奖完成 strategyId: {} awardId: {}", requestDTO.getStrategyId(),
                     responseDTO.getAwardId());
-            return Response.<RaffleResponseDTO>builder().code(ResponseCode.SUCCESS.getCode())
+            return Response.<RaffleStrategyResponseDTO>builder().code(ResponseCode.SUCCESS.getCode())
                            .info(ResponseCode.SUCCESS.getInfo()).data(responseDTO).build();
         } catch (Exception e) {
             log.error("随机抽奖失败 strategyId: {}", requestDTO.getStrategyId(), e);
-            return Response.<RaffleResponseDTO>builder().code(ResponseCode.UN_ERROR.getCode())
+            return Response.<RaffleStrategyResponseDTO>builder().code(ResponseCode.UN_ERROR.getCode())
                            .info(ResponseCode.UN_ERROR.getInfo()).build();
         }
     }

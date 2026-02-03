@@ -32,7 +32,7 @@ public class UpdateActivitySkuStockJob {
      * 调度策略：每 5 秒触发一次（0, 5, 10, 15...）。
      * 错峰设计：与奖品库存同步任务（15s 周期）时间节点错开，平滑数据库连接负载。
      */
-    @Scheduled(cron = "0/5 * * * * ?")
+    @Scheduled(cron = "0 */1 * * * ?")
     public void exec() {
         try {
             // 1. 本地内存合并容器：Key 为 SKU 标识，Value 为本周期内累计需要扣减的库存数量

@@ -36,7 +36,7 @@ public class SendMessageTaskJob {
      * 2. 处理阶段：将逻辑结果集汇总后，利用线程池多线程并行外发消息。
      * 3. 更新阶段：更新状态时必须回传 userId，确保 ShardingSphere 执行“精准写”，避免全量扫描性能损耗。
      */
-    @Scheduled(cron = "0/5 * * * * ?")
+    @Scheduled(cron = "0 */1 * * * ?")
     public void exec() {
         try {
             // 1. 扫描待投递任务（ShardingSphere 广播扫描全量分片库表）

@@ -33,7 +33,7 @@ public class UpdateStrategyAwardStockJob {
      * 调度策略：每分钟从第 2 秒开始，每 15 秒触发一次（2, 17, 32, 47）。
      * 优化点：通过时间偏移，与活动 SKU 库存任务错峰执行，避免数据库连接瞬时竞争。
      */
-    @Scheduled(cron = "2/15 * * * * ?")
+    @Scheduled(cron = "0 */1 * * * ?")
     public void exec() {
         try {
             // 1. 临时容器：用于记录本轮扫描到的待处理奖品，实现去重与元数据暂存

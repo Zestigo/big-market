@@ -10,12 +10,13 @@ import org.springframework.stereotype.Component;
 import javax.annotation.Resource;
 
 /**
- * 规则树-规则锁逻辑节点
- * 核心职责：
- * 1. 校验用户抽奖行为是否满足预设的规则锁条件（核心为抽奖次数阈值校验）
- * 2. 根据校验结果决定是否解锁奖品：满足条件则允许继续后续流程，不满足则拦截流程
- * 3. 典型应用场景：用户累计抽奖次数达到指定阈值后，解锁特定奖品的抽取权限
- * 节点标识：rule_lock（通过@Component注解声明，供规则树工厂动态加载）
+ * 规则树节点：次数锁校验 (Rule Lock)
+ * * 核心职责：
+ * 校验用户在当前策略下的累计抽奖次数是否达到预设阈值，从而决定是否允许抽取该奖品。
+ * * 决策逻辑：
+ * 1. ALLOW (放行)：用户累计次数 >= 规则阈值，允许继续后续流程（如执行抽奖）。
+ * 2. TAKE_OVER (接管)：用户累计次数 < 规则阈值，拦截后续逻辑，锁定奖品。
+ * * 节点标识：rule_lock（用于规则树工厂 DefaultTreeFactory 动态路由）
  *
  * @author cyh
  * @date 2026/01/19
@@ -27,57 +28,42 @@ public class RuleLockLogicTreeNode implements ILogicTreeNode {
     @Resource
     private IStrategyRepository strategyRepository;
 
-    // 临时测试用：模拟用户累计抽奖次数，实际业务中需从strategyRepository查询真实数据
-    // TODO: 替换为从仓储层获取用户真实抽奖次数的业务逻辑
-    private long userRaffleCount = 10L;
-
     /**
-     * 执行规则锁的核心判定逻辑
-     * 核心逻辑：
-     * 1. 解析规则值（ruleValue）：需为数字格式，代表解锁奖品的最低抽奖次数阈值
-     * 2. 规则值解析失败时抛出运行时异常，提示配置错误
-     * 3. 对比用户累计抽奖次数与阈值：
-     * - 达到/超过阈值：返回ALLOW，解锁奖品，继续后续规则树流程
-     * - 未达到阈值：返回TAKE_OVER，拦截流程，锁定奖品
+     * 执行次数锁逻辑判定
      *
-     * @param userId     用户唯一标识，用于查询该用户的累计抽奖次数
-     * @param strategyId 策略ID，关联具体的抽奖策略配置
-     * @param awardId    当前进行锁校验的目标奖品ID
-     * @param ruleValue  规则配置值，格式要求为数字（解锁奖品的最低抽奖次数），例如 "5"
-     * @return DefaultTreeFactory.TreeActionEntity 规则树决策结果实体
-     * - ALLOW：用户抽奖次数达标，解锁奖品，继续后续节点判定
-     * - TAKE_OVER：用户抽奖次数未达标，锁定奖品，终止后续流程
-     * @throws RuntimeException 当ruleValue非数字格式时抛出，提示规则值配置错误
+     * @param userId     用户ID：用于查询该用户关联的累计抽奖数据
+     * @param strategyId 策略ID：对应具体的业务配置方案
+     * @param awardId    奖品ID：当前正在校验的奖品对象
+     * @param ruleValue  规则阈值：解锁所需的最小抽奖次数（预期为数字字符串，如 "5"）
+     * @return 规则树过滤结果实体 (包含 ALLOW 或 TAKE_OVER 状态)
+     * @throws IllegalArgumentException 当 ruleValue 配置非数字时抛出，阻止逻辑在错误配置下运行
      */
     @Override
     public DefaultTreeFactory.TreeActionEntity logic(String userId, Long strategyId, Integer awardId,
                                                      String ruleValue) {
-        // 日志记录规则锁校验开始，便于链路追踪和问题排查
-        log.info("规则树-规则锁节点执行校验: userId={}, strategyId={}, awardId={}, ruleValue={}", userId, strategyId,
+        log.info("规则树-规则锁节点开始校验 userId:{} strategyId:{} awardId:{} ruleValue:{}", userId, strategyId,
                 awardId, ruleValue);
 
-        // 解析规则值为抽奖次数阈值，需确保为数字格式
+        // 1. 解析阈值：将配置的规则值转换为数值，转换失败则视为配置非法
         long raffleCountThreshold;
         try {
             raffleCountThreshold = Long.parseLong(ruleValue);
-        } catch (Exception e) {
-            log.error("规则树-规则锁节点解析异常：规则值非数字格式，userId={}, strategyId={}, awardId={}, ruleValue={}", userId,
-                    strategyId, awardId, ruleValue, e);
-            throw new RuntimeException("规则锁节点规则值配置错误，需传入数字格式的抽奖次数阈值：" + ruleValue);
+        } catch (NumberFormatException e) {
+            log.error("规则树-规则锁配置异常，解析 ruleValue 失败: {}", ruleValue);
+            throw new IllegalArgumentException("规则锁节点配置非法，预期为数字类型: " + ruleValue);
         }
 
-        // 校验用户累计抽奖次数是否达到解锁阈值
+        // 2. 数据采集：查询用户在当前策略下的累计抽奖次数（通常为当日次数）
+        Integer userRaffleCount = strategyRepository.queryTodayUserRaffleCount(userId, strategyId);
+
+        // 3. 判定逻辑：满足阈值则放行，否则接管流程
         if (userRaffleCount >= raffleCountThreshold) {
-            log.info("规则树-规则锁节点校验通过：用户抽奖次数达标，解锁奖品，userId={}, awardId={}, 累计次数={}, 阈值={}", userId, awardId,
-                    userRaffleCount, raffleCountThreshold);
-            // 次数达标，返回ALLOW，允许继续后续流程
+            log.info("规则树-规则锁校验通过: 用户次数 {} 已达标 {}", userRaffleCount, raffleCountThreshold);
             return DefaultTreeFactory.TreeActionEntity.builder()
                                                       .ruleLogicCheckType(RuleLogicCheckTypeVO.ALLOW).build();
         }
 
-        log.info("规则树-规则锁节点校验失败：用户抽奖次数未达标，锁定奖品，userId={}, awardId={}, 累计次数={}, 阈值={}", userId, awardId,
-                userRaffleCount, raffleCountThreshold);
-        // 次数未达标，返回TAKE_OVER，拦截流程
+        log.info("规则树-规则锁校验拦截: 用户次数 {} 未达标 {}", userRaffleCount, raffleCountThreshold);
         return DefaultTreeFactory.TreeActionEntity.builder()
                                                   .ruleLogicCheckType(RuleLogicCheckTypeVO.TAKE_OVER).build();
     }

@@ -4,15 +4,13 @@ import lombok.Data;
 import java.io.Serializable;
 
 /**
- * 抽奖奖品列表查询请求对象
+ * 抽奖策略查询请求对象
  *
  * @author cyh
  * @since 2026/02/02
  */
 @Data
-public class RaffleAwardListRequestDTO implements Serializable {
-
-    private static final long serialVersionUID = 1L;
+public class RaffleStrategyRequestDTO implements Serializable {
 
     /** 抽奖策略 ID (必填) */
     private Long strategyId;

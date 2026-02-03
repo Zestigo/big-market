@@ -34,4 +34,5 @@
         where strategy_id = #{strategyId}
           and rule_model = #{ruleModel}
     </select>
+
 </mapper>

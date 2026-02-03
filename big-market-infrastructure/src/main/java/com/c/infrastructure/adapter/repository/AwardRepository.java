@@ -7,9 +7,11 @@ import com.c.domain.award.model.entity.UserAwardRecordEntity;
 import com.c.domain.award.repositor.IAwardRepository;
 import com.c.infrastructure.dao.ITaskDao;
 import com.c.infrastructure.dao.IUserAwardRecordDao;
+import com.c.infrastructure.dao.IUserRaffleOrderDao;
 import com.c.infrastructure.event.EventPublisher;
 import com.c.infrastructure.po.Task;
 import com.c.infrastructure.po.UserAwardRecord;
+import com.c.infrastructure.po.UserRaffleOrder;
 import com.c.types.enums.ResponseCode;
 import com.c.types.exception.AppException;
 import lombok.extern.slf4j.Slf4j;
@@ -40,6 +42,8 @@ public class AwardRepository implements IAwardRepository {
     private TransactionTemplate transactionTemplate;
     @Resource
     private EventPublisher eventPublisher;
+    @Resource
+    private IUserRaffleOrderDao userRaffleOrderDao;
 
     /**
      * 保存用户中奖记录及对应的消息补偿任务
@@ -57,14 +61,14 @@ public class AwardRepository implements IAwardRepository {
         UserAwardRecordEntity userAwardRecordEntity = userAwardRecordAggregate.getUserAwardRecordEntity();
         TaskEntity taskEntity = userAwardRecordAggregate.getTaskEntity();
         String userId = userAwardRecordEntity.getUserId();
+        String orderId = userAwardRecordEntity.getOrderId();
         Long activityId = userAwardRecordEntity.getActivityId();
         Integer awardId = userAwardRecordEntity.getAwardId();
 
         // 1. PO 对象转换 - 中奖记录
         UserAwardRecord userAwardRecord = UserAwardRecord.builder().userId(userId).activityId(activityId)
                                                          .strategyId(userAwardRecordEntity.getStrategyId())
-                                                         .orderId(userAwardRecordEntity.getOrderId())
-                                                         .awardId(awardId)
+                                                         .orderId(orderId).awardId(awardId)
                                                          .awardTitle(userAwardRecordEntity.getAwardTitle())
                                                          .awardTime(userAwardRecordEntity.getAwardTime())
                                                          .awardState(userAwardRecordEntity.getAwardState()
@@ -74,6 +78,8 @@ public class AwardRepository implements IAwardRepository {
                         .messageId(taskEntity.getMessageId())
                         .message(JSON.toJSONString(taskEntity.getMessage()))
                         .state(taskEntity.getState().getCode()).build();
+        UserRaffleOrder userRaffleOrder = UserRaffleOrder.builder().userId(userId).orderId(orderId)
+                                                         .build();
 
         // 3. 执行数据库事务
         transactionTemplate.execute(status -> {
@@ -82,6 +88,14 @@ public class AwardRepository implements IAwardRepository {
                 userAwardRecordDao.insert(userAwardRecord);
                 // 同库事务内：写入待发送任务
                 taskDao.insert(task);
+                int count = userRaffleOrderDao.updateUserRaffleOrderStateUsed(userRaffleOrder);
+                if (count != 1) {
+                    status.setRollbackOnly();
+                    log.error("写入中奖记录，用户抽奖单已使用过，不可重复抽奖 userId: {} activityId: {} awardId: {}", userId,
+                            activityId, awardId);
+                    throw new AppException(ResponseCode.ACTIVITY_ORDER_ERROR.getCode(),
+                            ResponseCode.ACTIVITY_ORDER_ERROR.getInfo());
+                }
                 return 1;
             } catch (DuplicateKeyException e) {
                 status.setRollbackOnly();

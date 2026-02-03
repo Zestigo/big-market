@@ -6,6 +6,7 @@ import com.c.domain.activity.model.entity.*;
 import com.c.domain.activity.model.vo.ActivitySkuStockKeyVO;
 
 import java.util.Date;
+import java.util.List;
 
 /**
  * 抽奖活动仓储接口 (Activity Domain Repository)
@@ -200,4 +201,6 @@ public interface IActivityRepository {
      * @param createPartakeOrderAggregate 包含各级账户变更与新订单信息的聚合根对象
      */
     void saveCreatePartakeOrderAggregate(CreatePartakeOrderAggregate createPartakeOrderAggregate);
+
+    List<ActivitySkuEntity> queryActivitySkuListByActivityId(Long activityId);
 }

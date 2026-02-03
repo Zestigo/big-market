@@ -5,7 +5,6 @@ import org.apache.ibatis.annotations.Mapper;
 
 /**
  * 抽奖活动次数配置数据访问接口
- * 职责：
  * 负责查询活动维度的次数限制规则。该配置定义了用户参与该活动时的“初始额度”或“充值额度”标准。
  * 与 {@link IRaffleActivityAccountDao} 不同，本接口操作的是配置模板，而非用户具体的账户余额。
  *
@@ -17,8 +16,6 @@ public interface IRaffleActivityCountDao {
 
     /**
      * 根据活动次数配置ID查询次数限制详情
-     * <p>
-     * 业务场景：
      * 1. 在活动 SKU 加载时，关联查询该 SKU 对应的次数规则。
      * 2. 在创建用户活动账户（Account）时，参考此配置初始化用户的可用额度。
      *

@@ -87,6 +87,12 @@ public class StrategyArmoryDispatch implements IStrategyArmory, IStrategyDispatc
         return true;
     }
 
+    @Override
+    public boolean assembleLotteryStrategyByActivityId(Long activityId) {
+        Long strategyId = repository.queryStrategyIdByActivityId(activityId);
+        return assembleLotteryStrategy(strategyId);
+    }
+
     /**
      * 核心装配算法：通过“空间换时间”，将概率转化为查找表
      */

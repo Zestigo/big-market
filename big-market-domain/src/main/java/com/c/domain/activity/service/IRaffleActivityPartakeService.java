@@ -13,6 +13,7 @@ import com.c.domain.activity.model.entity.UserRaffleOrderEntity;
  * @date 2026/02/01
  */
 public interface IRaffleActivityPartakeService {
+    UserRaffleOrderEntity createOrder(String userId, Long activityId);
 
     /**
      * 创建抽奖单（参与活动核心动作）

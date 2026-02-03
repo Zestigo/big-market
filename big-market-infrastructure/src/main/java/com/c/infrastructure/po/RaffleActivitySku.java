@@ -13,7 +13,7 @@ import java.util.Date;
  * @date 2026/01/27
  */
 @Data
-public class RaffleActivitySKU {
+public class RaffleActivitySku {
 
     /** 数据库自增主键ID */
     private Long id;

@@ -33,4 +33,12 @@ public class RaffleAwardListResponseDTO implements Serializable {
     /** 奖品展示排序编号 */
     private Integer sort;
 
+    /** 奖品规则锁定的抽奖次数阈值 */
+    private Integer awardRuleLockCount;
+
+    /** 奖品是否已解锁 (true: 已解锁, false: 未解锁) */
+    private Boolean isAwardUnlock;
+
+    /** 距离解锁还需要抽奖的次数 */
+    private Integer waitUnlockCount;
 }

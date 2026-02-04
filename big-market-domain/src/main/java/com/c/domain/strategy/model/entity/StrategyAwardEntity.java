@@ -8,9 +8,11 @@ import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 
 /**
+ * 策略奖品实体
+ * 描述特定抽奖策略下各奖品的配置信息、库存状态及中奖概率
+ *
  * @author cyh
- * @description 策略奖品实体：记录特定抽奖策略下各奖品的配置、库存及概率
- * @date 2026/02/02
+ * @since 2026/02/02
  */
 @Data
 @Builder
@@ -18,31 +20,31 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 public class StrategyAwardEntity {
 
-    /** 策略ID */
+    /** 策略 ID */
     private Long strategyId;
 
-    /** 奖品ID（关联自奖品配置表） */
+    /** 奖品 ID */
     private Integer awardId;
 
-    /** 奖品标题（如：华为 Mate 70 Pro） */
+    /** 奖品标题 */
     private String awardTitle;
 
-    /** 奖品副标题（如：颜色随机，抽中后联系客服领取） */
+    /** 奖品副标题 */
     private String awardSubtitle;
 
-    /** 奖品总数量（该策略下允许发出的最大数量） */
+    /** 奖品库存总量 */
     private Integer awardCount;
 
-    /** 奖品剩余库存（动态扣减后的数量） */
+    /** 奖品剩余库存 */
     private Integer awardCountSurplus;
 
-    /**
-     * 中奖概率
-     * 使用 BigDecimal 以保证浮点数运算精度，如 0.05 代表 5%
-     */
+    /** 中奖概率 (例如：0.005 表示 0.5%) */
     private BigDecimal awardRate;
 
-    /** 排序：定义奖品在页面展现或逻辑计算中的优先级 */
+    /** 排序编号 */
     private Integer sort;
+
+    /** 规则模型 (用于存储抽奖过程中的各类过滤规则，如：rule_luck_award, rule_lock 等) */
+    private String ruleModels;
 
 }

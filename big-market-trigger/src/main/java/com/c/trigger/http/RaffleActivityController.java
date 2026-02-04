@@ -66,8 +66,8 @@ public class RaffleActivityController implements IRaffleActivityService {
             strategyArmory.assembleLotteryStrategyByActivityId(activityId);
 
             log.info("活动装配预热完成，activityId:{}", activityId);
-            return Response.<Boolean>builder().code(ResponseCode.SUCCESS.getCode())
-                           .info(ResponseCode.SUCCESS.getInfo()).data(true).build();
+            return Response.<Boolean>builder().code(ResponseCode.SUCCESS.getCode()).info(ResponseCode.SUCCESS.getInfo())
+                           .data(true).build();
         } catch (Exception e) {
             log.error("活动装配预热失败，activityId:{}", activityId, e);
             return Response.<Boolean>builder().code(ResponseCode.UN_ERROR.getCode())
@@ -85,37 +85,37 @@ public class RaffleActivityController implements IRaffleActivityService {
     @Override
     @PostMapping("draw")
     public Response<ActivityDrawResponseDTO> draw(@RequestBody ActivityDrawRequestDTO request) {
+        String userId = request.getUserId();
+        Long activityId = request.getActivityId();
         try {
-            log.info("抽奖行为触发，userId:{} activityId:{}", request.getUserId(), request.getActivityId());
+            log.info("抽奖行为触发，userId:{} activityId:{}", userId, activityId);
 
             // 1. 参数合法性前置校验
-            if (StringUtils.isBlank(request.getUserId()) || null == request.getActivityId()) {
+            if (StringUtils.isBlank(userId) || null == activityId) {
                 throw new AppException(ResponseCode.ILLEGAL_PARAMETER.getCode(),
                         ResponseCode.ILLEGAL_PARAMETER.getInfo());
             }
 
             // 2. 参与活动：扣减额度并创建用户抽奖参与订单（含重入性检查）
-            UserRaffleOrderEntity orderEntity =
-                    raffleActivityPartakeService.createOrder(request.getUserId(), request.getActivityId());
+            UserRaffleOrderEntity orderEntity = raffleActivityPartakeService.createOrder(userId, activityId);
             log.info("用户参与活动成功，生成订单号:{}", orderEntity.getOrderId());
 
             // 3. 执行抽奖决策：基于策略引擎计算中奖结果
             RaffleAwardEntity raffleAwardEntity = raffleStrategy.performRaffle(RaffleFactorEntity.builder()
-                                                                                                 .userId(orderEntity.getUserId())
+                                                                                                 .userId(userId)
                                                                                                  .strategyId(orderEntity.getStrategyId())
+                                                                                                 .endDateTime(orderEntity.getEndDateTime())
                                                                                                  .build());
 
             // 4. 结果异步化/落库：保存中奖记录，等待后续发奖流程
-            UserAwardRecordEntity userAwardRecord = UserAwardRecordEntity.builder()
-                                                                         .userId(orderEntity.getUserId())
+            UserAwardRecordEntity userAwardRecord = UserAwardRecordEntity.builder().userId(userId)
                                                                          .activityId(orderEntity.getActivityId())
-                                                                         .strategyId(orderEntity.getStrategyId())
+                                                                         .strategyId(activityId)
                                                                          .orderId(orderEntity.getOrderId())
                                                                          .awardId(raffleAwardEntity.getAwardId())
                                                                          .awardTitle(raffleAwardEntity.getAwardTitle())
                                                                          .awardTime(new Date())
-                                                                         .awardState(AwardStateVO.create)
-                                                                         .build();
+                                                                         .awardState(AwardStateVO.create).build();
             awardService.saveUserAwardRecord(userAwardRecord);
 
             // 5. 组装响应数据并返回
@@ -123,14 +123,13 @@ public class RaffleActivityController implements IRaffleActivityService {
                            .info(ResponseCode.SUCCESS.getInfo())
                            .data(ActivityDrawResponseDTO.builder().awardId(raffleAwardEntity.getAwardId())
                                                         .awardTitle(raffleAwardEntity.getAwardTitle())
-                                                        .awardIndex(raffleAwardEntity.getSort()).build())
-                           .build();
+                                                        .awardIndex(raffleAwardEntity.getSort()).build()).build();
 
         } catch (AppException e) {
-            log.error("抽奖业务异常，userId:{} activityId:{}", request.getUserId(), request.getActivityId(), e);
+            log.error("抽奖业务异常，userId:{} activityId:{}", userId, activityId, e);
             return Response.<ActivityDrawResponseDTO>builder().code(e.getCode()).info(e.getInfo()).build();
         } catch (Exception e) {
-            log.error("抽奖系统未知错误，userId:{} activityId:{}", request.getUserId(), request.getActivityId(), e);
+            log.error("抽奖系统未知错误，userId:{} activityId:{}", userId, activityId, e);
             return Response.<ActivityDrawResponseDTO>builder().code(ResponseCode.UN_ERROR.getCode())
                            .info(ResponseCode.UN_ERROR.getInfo()).build();
         }

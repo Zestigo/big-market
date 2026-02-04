@@ -7,6 +7,8 @@ import com.c.types.common.Constants;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import java.util.Date;
+
 /**
  * 规则树-幸运奖励逻辑节点
  * 核心职责：
@@ -40,7 +42,7 @@ public class RuleLuckAwardLogicTreeNode implements ILogicTreeNode {
      */
     @Override
     public DefaultTreeFactory.TreeActionEntity logic(String userId, Long strategyId, Integer awardId,
-                                                     String ruleValue) {
+                                                     String ruleValue, Date endDateTime) {
         // 日志记录节点执行入参，便于问题排查和链路追踪
         log.info("规则树-幸运奖节点执行开始: userId={}, strategyId={}, currentAwardId={}, ruleValue={}", userId,
                 strategyId, awardId, ruleValue);

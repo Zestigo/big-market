@@ -80,8 +80,8 @@ public class ActivityRepository implements IActivityRepository {
     public ActivityEntity queryRaffleActivityByActivityId(Long activityId) {
         // 拼接活动信息缓存 Key
         String cacheKey = Constants.RedisKey.ACTIVITY_KEY + activityId;
-        // 优先从 Redis 获取，命中则直接返回
-        ActivityEntity activityEntity = redisService.getValue(cacheKey);
+                                               // 优先从 Redis 获取，命中则直接返回
+                                               ActivityEntity activityEntity = redisService.getValue(cacheKey);
         if (activityEntity != null) return activityEntity;
 
         // 缓存未命中，穿透到数据库查询
@@ -435,7 +435,7 @@ public class ActivityRepository implements IActivityRepository {
                 // surplus > 0)
                 int totalCount =
                         raffleActivityAccountDao.updateActivityAccountSubtractionQuota(RaffleActivityAccount
-                        .builder().userId(userId).activityId(activityId).build());
+                                .builder().userId(userId).activityId(activityId).build());
 
                 if (1 != totalCount) {
                     status.setRollbackOnly(); // 强行回滚事务
@@ -450,8 +450,8 @@ public class ActivityRepository implements IActivityRepository {
                     // 已存在当前月份记录，直接执行原子扣减
                     int updateMonthCount =
                             raffleActivityAccountMonthDao.updateActivityAccountMonthSubtractionQuota(RaffleActivityAccountMonth
-                            .builder().userId(userId).activityId(activityId)
-                            .month(activityAccountMonthEntity.getMonth()).build());
+                                    .builder().userId(userId).activityId(activityId)
+                                    .month(activityAccountMonthEntity.getMonth()).build());
                     if (1 != updateMonthCount) {
                         status.setRollbackOnly();
                         log.warn("月账户额度不足 userId: {} month: {}", userId,
@@ -477,8 +477,8 @@ public class ActivityRepository implements IActivityRepository {
                     // 已存在当日记录，执行原子扣减
                     int updateDayCount =
                             raffleActivityAccountDayDao.updateActivityAccountDaySubtractionQuota(RaffleActivityAccountDay
-                            .builder().userId(userId).activityId(activityId)
-                            .day(activityAccountDayEntity.getDay()).build());
+                                    .builder().userId(userId).activityId(activityId)
+                                    .day(activityAccountDayEntity.getDay()).build());
                     if (1 != updateDayCount) {
                         status.setRollbackOnly();
                         log.warn("日账户额度不足 userId: {} day: {}", userId, activityAccountDayEntity.getDay());
@@ -520,11 +520,23 @@ public class ActivityRepository implements IActivityRepository {
         });
     }
 
+    /**
+     * 根据活动 ID 查询关联的 SKU 清单
+     * 业务场景：用于在活动详情页或装配阶段，获取该活动下所有可售卖/参与的 SKU 库存及配置。
+     *
+     * @param activityId 活动唯一标识
+     * @return {@link List<ActivitySkuEntity>} SKU 领域实体列表
+     */
     @Override
     public List<ActivitySkuEntity> queryActivitySkuListByActivityId(Long activityId) {
+        // 1. 从数据库查询持久化对象 (PO) 列表
         List<RaffleActivitySku> raffleActivitySkus =
                 raffleActivitySkuDao.queryActivitySkuListByActivityId(activityId);
+
+        // 2. 预分配集合空间，减少扩容开销
         List<ActivitySkuEntity> activitySkuEntities = new ArrayList<>(raffleActivitySkus.size());
+
+        // 3. 模型转换：PO -> Entity (隔离基础层与领域层)
         for (RaffleActivitySku raffleActivitySku : raffleActivitySkus) {
             activitySkuEntities.add(ActivitySkuEntity.builder().sku(raffleActivitySku.getSku())
                                                      .activityId(raffleActivitySku.getActivityId())
@@ -534,5 +546,38 @@ public class ActivityRepository implements IActivityRepository {
                                                      .build());
         }
         return activitySkuEntities;
+    }
+
+    /**
+     * 查询用户当日针对特定活动的累计参与次数
+     * 逻辑：通过当日总额度减去当日剩余额度，计算出已消耗的次数。
+     *
+     * @param activityId 活动唯一标识
+     * @param userId     用户唯一标识
+     * @return 当日已参与次数（若无记录则返回 0）
+     */
+    @Override
+    public Integer queryRaffleActivityAccountDayPartakeCount(Long activityId, String userId) {
+        // 1. 构建查询参数对象，并自动设置当前日期 (yyyy-MM-dd)
+        RaffleActivityAccountDay raffleActivityAccountDay = RaffleActivityAccountDay.builder()
+                                                                                    .activityId(activityId)
+                                                                                    .userId(userId).build();
+        raffleActivityAccountDay.setDay(raffleActivityAccountDay.currentDay());
+
+        // 2. 查询用户日账户记录
+        raffleActivityAccountDay =
+                raffleActivityAccountDayDao.queryActivityAccountDayByUserId(raffleActivityAccountDay);
+
+        // 3. 防御性校验：若当天无账户记录（未参与过），则已参与次数为 0
+        if (null == raffleActivityAccountDay) return 0;
+
+        Integer dayCount = raffleActivityAccountDay.getDayCount();
+        Integer dayCountSurplus = raffleActivityAccountDay.getDayCountSurplus();
+
+        // 4. 校验配置完整性，防止空指针
+        if (dayCount == null || dayCountSurplus == null) return 0;
+
+        // 5. 计算已参与次数：日总额度 - 日剩余额度
+        return dayCount - dayCountSurplus;
     }
 }

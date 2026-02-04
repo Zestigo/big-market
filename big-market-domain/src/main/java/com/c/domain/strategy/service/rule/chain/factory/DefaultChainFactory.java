@@ -12,7 +12,7 @@ import java.util.Map;
 /**
  * @author cyh
  * @description 责任链工厂：动态组装抽奖逻辑链路
- * @details 核心功能是根据策略 ID 从数据库/缓存中获取配置的规则模型（rule_models），
+ * 核心功能是根据策略 ID 从数据库/缓存中获取配置的规则模型（rule_models），
  * 并通过 Spring 注入的 Bean 集合，将这些规则节点按顺序装配成一条可执行的责任链。
  * 这种方式实现了规则的灵活插拔，无需硬编码即可调整抽奖逻辑。
  * @date 2026/01/18
@@ -85,9 +85,8 @@ public class DefaultChainFactory {
     @Getter
     @AllArgsConstructor
     public enum LogicModel {
-        RULE_DEFAULT("rule_default", "默认抽奖"),
-        RULE_BLACKLIST("rule_blacklist", "黑名单规则"),
-        RULE_WEIGHT("rule_weight", "权重规则"),
+        RULE_DEFAULT("rule_default", "默认抽奖"), RULE_BLACKLIST("rule_blacklist", "黑名单规则"), RULE_WEIGHT("rule_weight",
+                "权重规则"),
         ;
 
         private final String code;

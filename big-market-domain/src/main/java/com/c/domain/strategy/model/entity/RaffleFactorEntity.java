@@ -5,6 +5,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.Date;
+
 /**
  * @author cyh
  * @description 抽奖因子实体：封装本次抽奖执行所需的关键触发参数
@@ -21,5 +23,8 @@ public class RaffleFactorEntity {
 
     /** 本次抽奖所关联的策略模型 ID */
     private Long strategyId;
+
+    /** 活动结束时间（用于控制该订单在缓存或库中的生命周期） */
+    private Date endDateTime;
 
 }

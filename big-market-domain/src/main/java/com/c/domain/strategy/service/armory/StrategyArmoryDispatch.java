@@ -140,7 +140,8 @@ public class StrategyArmoryDispatch implements IStrategyArmory, IStrategyDispatc
         }
 
         // 调用 Repository 存储查找表数据，并记录表的大小以便后续取随机数
-        repository.storeStrategyAwardSearchRateTable(key, shuffleStrategyAwardSearchRateTables.size(), shuffleStrategyAwardSearchRateTables);
+        repository.storeStrategyAwardSearchRateTable(key, shuffleStrategyAwardSearchRateTables.size(),
+                shuffleStrategyAwardSearchRateTables);
         log.debug("策略概率表装配完成，Key: {}, 范围: {}", key, shuffleStrategyAwardSearchRateTables.size());
     }
 
@@ -172,11 +173,11 @@ public class StrategyArmoryDispatch implements IStrategyArmory, IStrategyDispatc
     }
 
     @Override
-    public Boolean subtractAwardStock(Long strategyId, Integer awardId) {
+    public Boolean subtractAwardStock(Long strategyId, Integer awardId, Date endDateTime) {
         // 构造奖品库存对应的缓存 Key
         String cacheKey = Constants.RedisKey.STRATEGY_AWARD_COUNT_KEY + strategyId + Constants.UNDERLINE + awardId;
         // 执行原子扣减操作
-        return repository.subtractAwardStock(cacheKey);
+        return repository.subtractAwardStock(cacheKey,endDateTime);
     }
 
     /**

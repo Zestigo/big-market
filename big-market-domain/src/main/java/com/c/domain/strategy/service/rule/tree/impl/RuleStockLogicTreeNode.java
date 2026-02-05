@@ -10,6 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.Resource;
+import java.util.Date;
 
 /**
  * 规则决策树-库存校验节点
@@ -39,11 +40,11 @@ public class RuleStockLogicTreeNode implements ILogicTreeNode {
      */
     @Override
     public DefaultTreeFactory.TreeActionEntity logic(String userId, Long strategyId, Integer awardId,
-                                                     String ruleValue) {
+                                                     String ruleValue, Date endDateTime) {
         log.info("规则树-库存校验节点开始执行: userId:{}, strategyId:{}, awardId:{}", userId, strategyId, awardId);
 
         // 1. 调用分发服务执行库存扣减（通常基于 Redis Lua 脚本实现原子性）
-        Boolean status = strategyDispatch.subtractAwardStock(strategyId, awardId);
+        Boolean status = strategyDispatch.subtractAwardStock(strategyId, awardId,endDateTime);
 
         if (status) {
             log.info("规则树-库存校验成功: userId:{}, strategyId:{}, awardId:{}", userId, strategyId, awardId);

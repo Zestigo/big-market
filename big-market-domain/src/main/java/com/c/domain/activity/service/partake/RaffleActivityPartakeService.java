@@ -48,8 +48,8 @@ public class RaffleActivityPartakeService extends AbstractRaffleActivityPartake 
     @Override
     protected CreatePartakeOrderAggregate doFilterAccount(String userId, Long activityId, Date currentDate) {
         // 1. 查询并校验总账户额度（这是所有参与行为的基准）
-        ActivityAccountEntity activityAccountEntity =
-                activityRepository.queryActivityAccountByUserId(userId, activityId);
+        ActivityAccountEntity activityAccountEntity = activityRepository.queryActivityAccountByUserId(userId,
+                activityId);
         if (null == activityAccountEntity || activityAccountEntity.getTotalCountSurplus() <= 0) {
             throw new AppException(ResponseCode.ACCOUNT_QUOTA_ERROR.getCode(),
                     ResponseCode.ACCOUNT_QUOTA_ERROR.getInfo());
@@ -80,8 +80,8 @@ public class RaffleActivityPartakeService extends AbstractRaffleActivityPartake 
         }
 
         // 4. 校验日账户额度
-        ActivityAccountDayEntity activityAccountDayEntity =
-                activityRepository.queryActivityAccountDayByUserId(userId, activityId, day);
+        ActivityAccountDayEntity activityAccountDayEntity = activityRepository.queryActivityAccountDayByUserId(userId
+                , activityId, day);
         if (null != activityAccountDayEntity && activityAccountDayEntity.getDayCountSurplus() <= 0) {
             throw new AppException(ResponseCode.ACCOUNT_DAY_QUOTA_ERROR.getCode(),
                     ResponseCode.ACCOUNT_DAY_QUOTA_ERROR.getInfo());
@@ -129,17 +129,13 @@ public class RaffleActivityPartakeService extends AbstractRaffleActivityPartake 
         ActivityEntity activityEntity = activityRepository.queryRaffleActivityByActivityId(activityId);
 
         // 组装订单快照
-        UserRaffleOrderEntity userRaffleOrder = new UserRaffleOrderEntity();
-        userRaffleOrder.setUserId(userId);
-        userRaffleOrder.setActivityId(activityId);
-        userRaffleOrder.setActivityName(activityEntity.getActivityName());
-        userRaffleOrder.setStrategyId(activityEntity.getStrategyId());
-        // 生成 12 位纯数字随机订单号（业务建议：实际生产应使用分布式 ID 生成器如雪花算法）
-        userRaffleOrder.setOrderId(RandomStringUtils.randomNumeric(12));
-        userRaffleOrder.setOrderTime(currentDate);
-        // 设置初始状态为“创建完成”，等待抽奖动作消耗
-        userRaffleOrder.setOrderState(UserRaffleOrderStateVO.create);
-
-        return userRaffleOrder;
+        return UserRaffleOrderEntity.builder().userId(userId).activityId(activityId)
+                                    .activityName(activityEntity.getActivityName())
+                                    .strategyId(activityEntity.getStrategyId())
+                                    // 生成 12 位纯数字随机订单号（业务建议：实际生产应使用分布式 ID 生成器如雪花算法）
+                                    .orderId(RandomStringUtils.randomNumeric(12))
+                                    // 设置初始状态为“创建完成”，等待抽奖动作消耗
+                                    .orderTime(currentDate).orderState(UserRaffleOrderStateVO.create)
+                                    .endDateTime(activityEntity.getEndDateTime()).build();
     }
 }

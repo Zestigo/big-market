@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.Resource;
+import java.util.Date;
 
 /**
  * 规则树节点：次数锁校验 (Rule Lock)
@@ -40,9 +41,9 @@ public class RuleLockLogicTreeNode implements ILogicTreeNode {
      */
     @Override
     public DefaultTreeFactory.TreeActionEntity logic(String userId, Long strategyId, Integer awardId,
-                                                     String ruleValue) {
-        log.info("规则树-规则锁节点开始校验 userId:{} strategyId:{} awardId:{} ruleValue:{}", userId, strategyId,
-                awardId, ruleValue);
+                                                     String ruleValue, Date endDateTime) {
+        log.info("规则树-规则锁节点开始校验 userId:{} strategyId:{} awardId:{} ruleValue:{}", userId, strategyId, awardId,
+                ruleValue);
 
         // 1. 解析阈值：将配置的规则值转换为数值，转换失败则视为配置非法
         long raffleCountThreshold;
@@ -59,12 +60,10 @@ public class RuleLockLogicTreeNode implements ILogicTreeNode {
         // 3. 判定逻辑：满足阈值则放行，否则接管流程
         if (userRaffleCount >= raffleCountThreshold) {
             log.info("规则树-规则锁校验通过: 用户次数 {} 已达标 {}", userRaffleCount, raffleCountThreshold);
-            return DefaultTreeFactory.TreeActionEntity.builder()
-                                                      .ruleLogicCheckType(RuleLogicCheckTypeVO.ALLOW).build();
+            return DefaultTreeFactory.TreeActionEntity.builder().ruleLogicCheckType(RuleLogicCheckTypeVO.ALLOW).build();
         }
 
         log.info("规则树-规则锁校验拦截: 用户次数 {} 未达标 {}", userRaffleCount, raffleCountThreshold);
-        return DefaultTreeFactory.TreeActionEntity.builder()
-                                                  .ruleLogicCheckType(RuleLogicCheckTypeVO.TAKE_OVER).build();
+        return DefaultTreeFactory.TreeActionEntity.builder().ruleLogicCheckType(RuleLogicCheckTypeVO.TAKE_OVER).build();
     }
 }

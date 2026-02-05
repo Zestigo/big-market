@@ -17,10 +17,10 @@ public interface IRaffleActivityAccountDayDao {
     /**
      * 查询用户在特定活动、特定日期的账户额度记录
      *
-     * @param raffleActivityAccountDayReq 包含 userId, activityId 以及 day(格式:yyyy-mm-dd) 的请求对象
+     * @param raffleActivityAccountDay 包含 userId, activityId 以及 day(格式:yyyy-mm-dd) 的请求对象
      * @return 日度账户持久化对象（包含当日剩余可参与次数）
      */
-    RaffleActivityAccountDay queryActivityAccountDayByUserId(RaffleActivityAccountDay raffleActivityAccountDayReq);
+    RaffleActivityAccountDay queryActivityAccountDayByUserId(RaffleActivityAccountDay raffleActivityAccountDay);
 
     /**
      * 原子扣减日度账户剩余额度
@@ -41,5 +41,4 @@ public interface IRaffleActivityAccountDayDao {
      * @param raffleActivityAccountDay 日度账户初始化信息实体
      */
     void insert(RaffleActivityAccountDay raffleActivityAccountDay);
-
 }

@@ -1,5 +1,7 @@
 package com.c.domain.strategy.service.armory;
 
+import java.util.Date;
+
 /**
  * 策略抽奖调度接口
  * 职责：
@@ -28,15 +30,18 @@ public interface IStrategyDispatch {
     Integer getRandomAwardId(Long strategyId, String ruleWeightValue);
 
     /**
-     * 扣减奖品库存
-     * 业务逻辑：
-     * 通常基于 Redis 结合 Lua 脚本实现。
-     * 确保在高并发场景下，奖品库存的扣减是原子性的，防止超卖。
+     * 原子扣减奖品库存（Redis Lua 异步化方案）
+     * * 核心逻辑：
+     * 1. 采用 Redis + Lua 脚本实现原子性判定与扣减，确保高并发下不发生“超卖”。
+     * 2. 扣减成功后，需同步将库存消耗记录塞入延迟队列（如本地 DelayQueue 或消息队列），
+     * 以便后续异步更新数据库物理库存，实现最终一致性。
      *
-     * @param strategyId 策略ID
-     * @param awardId    奖品ID
-     * @return 是否扣减成功（true: 扣减成功且有余量；false: 库存不足或扣减失败）
+     * @param strategyId  策略 ID
+     * @param awardId     奖品 ID
+     * @param endDateTime 活动结束时间（用于设置缓存 Key 的过期时长，防止僵尸数据堆积）
+     * @return 扣减结果：
+     * - true:  库存充足且扣减成功，允许发放奖品。
+     * - false: 库存不足或已售罄，需执行拦截或走兜底逻辑。
      */
-    Boolean subtractAwardStock(Long strategyId, Integer awardId);
-
+    Boolean subtractAwardStock(Long strategyId, Integer awardId, Date endDateTime);
 }

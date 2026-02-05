@@ -35,5 +35,4 @@
           and activity_id = #{activityId}
           and day = #{day}
     </select>
-
 </mapper>

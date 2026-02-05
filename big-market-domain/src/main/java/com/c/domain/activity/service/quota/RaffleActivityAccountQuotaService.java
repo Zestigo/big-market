@@ -136,7 +136,7 @@ public class RaffleActivityAccountQuotaService extends AbstractRaffleActivityAcc
 
     /**
      * 设置库存售罄标识（防击穿）
-     * * 逻辑说明：在缓存中设置标识位，避免在库存为 0 时仍频繁查询数据库，提升系统响应。
+     * 在缓存中设置标识位，避免在库存为 0 时仍频繁查询数据库，提升系统响应。
      *
      * @param sku 活动商品 SKU
      */
@@ -147,8 +147,8 @@ public class RaffleActivityAccountQuotaService extends AbstractRaffleActivityAcc
 
     /**
      * 判断当前 SKU 是否已售罄
-     * * @param sku 活动商品 SKU
      *
+     * @param sku 活动商品 SKU
      * @return boolean true 为已售罄
      */
     @Override
@@ -156,4 +156,18 @@ public class RaffleActivityAccountQuotaService extends AbstractRaffleActivityAcc
         return activityRepository.isSkuStockZero(sku);
     }
 
+    /**
+     * 查询用户当日累计已参与抽奖活动的次数
+     * 职责说明：该方法通过调用仓储层接口，获取用户在特定活动下的日账户快照，并计算得出已参与次数。
+     * 常用于：1. 判定是否满足“次数锁”解锁条件；2. 前端活动页面进度条数据展示。
+     *
+     * @param activityId 活动唯一标识 ID
+     * @param userId     用户唯一标识 ID
+     * @return 当日该用户已参与抽奖的计数值。若当日未参与或账户不存在，则返回 0。
+     */
+    @Override
+    public Integer queryRaffleActivityAccountDayPartakeCount(Long activityId, String userId) {
+        // 直接调度领域仓储层获取计算后的统计结果
+        return activityRepository.queryRaffleActivityAccountDayPartakeCount(activityId, userId);
+    }
 }

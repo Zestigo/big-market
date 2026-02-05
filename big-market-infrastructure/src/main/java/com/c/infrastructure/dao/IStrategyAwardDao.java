@@ -31,7 +31,7 @@ public interface IStrategyAwardDao {
      * @param strategyId 策略唯一标识
      * @return 奖品配置详情列表（含 ID、权重概率、库存水位线等）
      */
-    List<StrategyAward> queryStrategyAwardListByStrategyId(Long strategyId);
+    List<StrategyAward> queryStrategyAwardListByActivityId(Long strategyId);
 
     /**
      * 获取奖品绑定的规则模型标识
@@ -59,4 +59,5 @@ public interface IStrategyAwardDao {
      * @return 策略奖品持久化实体
      */
     StrategyAward queryStrategyAwardEntity(StrategyAward strategyAward);
+
 }

@@ -1,5 +1,7 @@
 package com.c.domain.strategy.service;
 
+import com.c.domain.strategy.model.vo.RuleWeightVO;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -18,4 +20,21 @@ public interface IRaffleRule {
      * @return Map 映射（Key: 规则树 ID, Value: 解锁所需抽奖次数）
      */
     Map<String, Integer> queryAwardRuleLockCount(String[] treeIds);
+
+    /**
+     * 根据策略 ID 查询权重规则配置
+     *
+     * @param strategyId 策略 ID
+     * @return 权重规则配置列表
+     */
+    List<RuleWeightVO> queryAwardRuleWeight(Long strategyId);
+
+    /**
+     * 根据活动 ID 查询权重规则配置
+     *
+     * @param activityId 活动 ID
+     * @return 权重规则配置列表
+     */
+    List<RuleWeightVO> queryAwardRuleWeightByActivityId(Long activityId);
+
 }

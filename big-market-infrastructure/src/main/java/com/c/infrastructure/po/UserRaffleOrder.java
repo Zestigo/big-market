@@ -41,7 +41,7 @@ public class UserRaffleOrder {
     /** 下单时间 */
     private Date orderTime;
 
-    /** 订单状态；create-已创建、used-已使用（已完成抽奖）、cancel-已作废 */
+    /** 订单状态；CREATE-已创建、USED-已使用（已完成抽奖）、CANCEL-已作废 */
     private String orderState;
 
     /** 创建时间 */

@@ -6,16 +6,15 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import javax.annotation.Resource;
 import java.util.HashMap;
 import java.util.Map;
-import javax.annotation.Resource;
 
 /**
- * 活动 SKU 物理库存异步同步任务
- * 职责：
- * 1. 异步削峰：消费 Redis 预扣减产生的库存流水队列，减轻数据库高频行锁竞争。
- * 2. 批量写合并：将同一周期内的多次扣减请求合并为单次数据库更新，大幅提升 IOPS。
- * 3. 最终一致性保障：通过分布式标识位拦截已售罄 SKU，确保无效扣减不再下发至持久层。
+ * 基础设施层：活动 SKU 物理库存异步同步任务
+ * 1. 异步削峰：通过消费 Redis 扣减产生的延迟队列，平摊高并发下的数据库压力。
+ * 2. 批量写合并：在同一调度周期内，将多次单量扣减合并为一次批量更新 SQL，极大减少行锁竞争。
+ * 3. 错峰调度：通过独立频率设置，避免与奖品库存同步任务发生 I/O 冲突。
  *
  * @author cyh
  * @date 2026/01/28
@@ -29,45 +28,52 @@ public class UpdateActivitySkuStockJob {
 
     /**
      * 执行库存同步任务
-     * 调度策略：每 5 秒触发一次（0, 5, 10, 15...）。
-     * 错峰设计：与奖品库存同步任务（15s 周期）时间节点错开，平滑数据库连接负载。
+     * 运行频率：每 5 秒触发一次。
+     * 1. 累计计算：利用 Map 在内存中汇总本周期内各 SKU 的消耗总数。
+     * 2. 批量扣减：将累计值通过单条 SQL 更新至数据库：UPDATE table SET stock = stock - :count
+     * 3. 故障容错：单个 SKU 更新失败不阻塞后续 SKU 的同步。
      */
-    @Scheduled(cron = "0 */1 * * * ?")
+    @Scheduled(cron = "0/5 * * * * ?")
     public void exec() {
         try {
-            // 1. 本地内存合并容器：Key 为 SKU 标识，Value 为本周期内累计需要扣减的库存数量
+            // [步骤 1] 内存合并容器：Key = sku, Value = 本周期累计消耗量
             Map<Long, Integer> skuCountMap = new HashMap<>();
 
-            // 2. 队列预取：非阻塞式提取当前待处理的所有库存扣减指令
+            // [步骤 2] 非阻塞提取队列消息，直至清空当前待处理指令
             while (true) {
                 ActivitySkuStockKeyVO vo = skuStock.takeQueueValue();
-                if (vo == null) break;
-                // 累计同一 SKU 的消耗量，实现写合并逻辑
+                if (null == vo) {
+                    break;
+                }
+                // 使用 merge 算子实现写合并逻辑，统计本轮消耗总数
                 skuCountMap.merge(vo.getSku(), 1, Integer::sum);
             }
 
-            // 本周期无业务数据则直接退出
-            if (skuCountMap.isEmpty()) return;
+            // 无任务则跳过执行
+            if (skuCountMap.isEmpty()) {
+                return;
+            }
 
-            // 3. 批量更新执行：遍历合并后的 SKU 集合进行持久化操作
+            // [步骤 3] 遍历合并后的集合，执行持久化更新
             skuCountMap.forEach((sku, count) -> {
                 try {
-                    // 【熔断拦截】检查售罄标识位。若实时监听器（如 Canal 或实时消费）已将数据库置零，
-                    // 则跳过此 SKU 的异步扣减，避免数据库库存出现负数或无效更新。
+                    // 3.1 熔断拦截：检查售罄标识位，避免无效 SQL 执行
                     if (skuStock.isSkuStockZero(sku)) {
-                        log.info("【Job】SKU:{} 存在售罄熔断标识，拦截无效异步更新请求", sku);
+                        log.warn("【熔断】SKU: {} 已标记售罄，拦截异步更新请求 | 待更新数: {}", sku, count);
                         return;
                     }
 
-                    // 执行批量库存扣减更新：UPDATE table SET stock = stock - count WHERE sku = ?
+                    // 3.2 批量异步更新数据库库存
+                    log.info("开始异步同步活动库存 | SKU: {} | 累计消耗量: {}", sku, count);
                     skuStock.updateActivitySkuStockBatch(sku, count);
+
                 } catch (Exception e) {
-                    log.error("【Job】同步 SKU 物理库存失败 sku:{} count:{}", sku, count, e);
+                    log.error("【错误】同步活动 SKU 物理库存异常 | SKU: {} | 累计数: {}", sku, count, e);
                 }
             });
 
         } catch (Exception e) {
-            log.error("【Job】库存同步链路执行异常", e);
+            log.error("活动 SKU 库存同步链路执行严重异常", e);
         }
     }
 }

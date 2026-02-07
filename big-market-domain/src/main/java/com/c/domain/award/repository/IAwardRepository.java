@@ -1,4 +1,4 @@
-package com.c.domain.award.repositor;
+package com.c.domain.award.repository;
 
 import com.c.domain.award.model.aggregate.UserAwardRecordAggregate;
 

@@ -64,6 +64,10 @@ spring:
         exchange: send_award_exchange
         routing-key: send_award_routing_key
         queue: send_award_queue
+      send_rebate:
+        exchange: send_rebate_exchange
+        routing-key: send_rebate_routing_key
+        queue: send_rebate_queue
   # ========================= 分库分表（ShardingSphere）配置 =========================
   shardingsphere:
     # 1. 数据源配置
@@ -127,6 +131,18 @@ spring:
           # 用户中奖记录表 (Logic Table: user_award_record)
           user_award_record:
             actual-data-nodes: ds_${0..1}.user_award_record_00${0..3}
+            database-strategy:
+              standard:
+                sharding-column: user_id
+                sharding-algorithm-name: sys_user_db_alg
+            table-strategy:
+              standard:
+                sharding-column: user_id
+                sharding-algorithm-name: sys_user_tbl_alg
+
+          # 用户中奖记录表 (Logic Table: user_award_record)
+          user_behavior_rebate_order:
+            actual-data-nodes: ds_${0..1}.user_behavior_rebate_order_00${0..3}
             database-strategy:
               standard:
                 sharding-column: user_id

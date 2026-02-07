@@ -69,4 +69,12 @@ public interface IRaffleActivityAccountDao {
      */
     void updateActivityAccountDaySurplusImageQuota(RaffleActivityAccount raffleActivityAccount);
 
+    /**
+     * 查询总抽奖次数额度（仅包含 total_count 维度）
+     *
+     * @param queryCondition 包含 userId 和 activityId
+     * @return 仅填充总额度字段的账户信息
+     */
+    RaffleActivityAccount queryTotalUserRaffleCount(RaffleActivityAccount queryCondition);
+
 }

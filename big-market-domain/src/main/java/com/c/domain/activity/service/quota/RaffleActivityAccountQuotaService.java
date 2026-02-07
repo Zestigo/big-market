@@ -4,7 +4,7 @@ import com.c.domain.activity.model.aggregate.CreateQuotaOrderAggregate;
 import com.c.domain.activity.model.entity.*;
 import com.c.domain.activity.model.vo.ActivitySkuStockKeyVO;
 import com.c.domain.activity.model.vo.OrderStateVO;
-import com.c.domain.activity.repositor.IActivityRepository;
+import com.c.domain.activity.repository.IActivityRepository;
 import com.c.domain.activity.service.IRaffleActivitySkuStockService;
 import com.c.domain.activity.service.quota.rule.factory.DefaultActivityChainFactory;
 import org.apache.commons.lang.RandomStringUtils;
@@ -42,7 +42,7 @@ public class RaffleActivityAccountQuotaService extends AbstractRaffleActivityAcc
      * * 业务逻辑说明：
      * 1. 实例化 ActivityOrderEntity：将充值请求中的流水信息与活动配置信息合并，作为本次参与的业务凭证。
      * 2. 生成全局流水：目前使用 RandomStringUtils 生成 12 位数字（建议在高并发生产环境下切换至雪花算法 ID）。
-     * 3. 状态预设：订单状态初始设为 completed（已完成），表示用户已成功获得参与该活动的合法资格。
+     * 3. 状态预设：订单状态初始设为 COMPLETED（已完成），表示用户已成功获得参与该活动的合法资格。
      *
      * @return CreateOrderAggregate 包含用户信息、活动信息及订单明细的聚合根
      */
@@ -53,28 +53,33 @@ public class RaffleActivityAccountQuotaService extends AbstractRaffleActivityAcc
                                                             ActivityCountEntity activityCountEntity) {
 
         // 1. 构建活动订单实体：承载业务快照与支付/参与流水
-        ActivityOrderEntity activityOrderEntity = ActivityOrderEntity.builder()
-                                                                     .userId(skuRechargeEntity.getUserId())
-                                                                     .sku(skuRechargeEntity.getSku())
-                                                                     .activityId(activityEntity.getActivityId())
-                                                                     .activityName(activityEntity.getActivityName())
-                                                                     .strategyId(activityEntity.getStrategyId())
-                                                                     .outBusinessNo(skuRechargeEntity.getOutBusinessNo())
-                                                                     // 订单ID：作为业务主键，关联后续的抽奖流程
-                                                                     .orderId(RandomStringUtils.randomNumeric(12))
-                                                                     .orderTime(new Date())
-                                                                     .totalCount(activityCountEntity.getTotalCount())
-                                                                     .dayCount(activityCountEntity.getDayCount())
-                                                                     .monthCount(activityCountEntity.getMonthCount())
-                                                                     .state(OrderStateVO.completed).build();
+        ActivityOrderEntity activityOrderEntity = ActivityOrderEntity
+                .builder()
+                .userId(skuRechargeEntity.getUserId())
+                .sku(skuRechargeEntity.getSku())
+                .activityId(activityEntity.getActivityId())
+                .activityName(activityEntity.getActivityName())
+                .strategyId(activityEntity.getStrategyId())
+                .outBusinessNo(skuRechargeEntity.getOutBusinessNo())
+                // 订单ID：作为业务主键，关联后续的抽奖流程
+                .orderId(RandomStringUtils.randomNumeric(12))
+                .orderTime(new Date())
+                .totalCount(activityCountEntity.getTotalCount())
+                .dayCount(activityCountEntity.getDayCount())
+                .monthCount(activityCountEntity.getMonthCount())
+                .state(OrderStateVO.COMPLETED)
+                .build();
 
         // 2. 组装并返回聚合根：统一管理关联实体的生命周期
-        return CreateQuotaOrderAggregate.builder().userId(skuRechargeEntity.getUserId())
-                                        .activityId(activitySkuEntity.getActivityId())
-                                        .totalCount(activityCountEntity.getTotalCount())
-                                        .dayCount(activityCountEntity.getDayCount())
-                                        .monthCount(activityCountEntity.getMonthCount())
-                                        .activityOrderEntity(activityOrderEntity).build();
+        return CreateQuotaOrderAggregate
+                .builder()
+                .userId(skuRechargeEntity.getUserId())
+                .activityId(activitySkuEntity.getActivityId())
+                .totalCount(activityCountEntity.getTotalCount())
+                .dayCount(activityCountEntity.getDayCount())
+                .monthCount(activityCountEntity.getMonthCount())
+                .activityOrderEntity(activityOrderEntity)
+                .build();
     }
 
     /**
@@ -169,5 +174,23 @@ public class RaffleActivityAccountQuotaService extends AbstractRaffleActivityAcc
     public Integer queryRaffleActivityAccountDayPartakeCount(Long activityId, String userId) {
         // 直接调度领域仓储层获取计算后的统计结果
         return activityRepository.queryRaffleActivityAccountDayPartakeCount(activityId, userId);
+    }
+
+    /**
+     * 查询用户活动账户额度实体
+     * 该方法通过仓储层获取用户在指定活动下的账户记录，包含总次数、日次数及月次数的配额详情。
+     *
+     * @param activityId 活动ID
+     * @param userId     用户唯一ID
+     * @return 活动账户额度实体
+     */
+    @Override
+    public ActivityAccountEntity queryActivityAccountEntity(Long activityId, String userId) {
+        return activityRepository.queryActivityAccountEntity(activityId, userId);
+    }
+
+    @Override
+    public Integer queryRaffleActivityAccountPartakeCount(Long activityId, String userId) {
+        return activityRepository.queryRaffleActivityAccountPartakeCount(activityId, userId);
     }
 }

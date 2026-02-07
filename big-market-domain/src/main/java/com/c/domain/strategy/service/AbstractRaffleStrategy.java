@@ -66,7 +66,7 @@ public abstract class AbstractRaffleStrategy implements IRaffleStrategy, IRaffle
         Date endDateTime = raffleFactorEntity.getEndDateTime();
 
         if (null == strategyId || StringUtils.isBlank(userId)) {
-            throw new AppException(ResponseCode.ILLEGAL_PARAMETER.getCode(), ResponseCode.ILLEGAL_PARAMETER.getInfo());
+            throw new AppException(ResponseCode.ILLEGAL_PARAMETER);
         }
 
         // 2. 【责任链阶段】执行抽奖前置过滤规则

@@ -5,7 +5,7 @@ import com.c.domain.activity.model.entity.ActivityEntity;
 import com.c.domain.activity.model.entity.PartakeRaffleActivityEntity;
 import com.c.domain.activity.model.entity.UserRaffleOrderEntity;
 import com.c.domain.activity.model.vo.ActivityStateVO;
-import com.c.domain.activity.repositor.IActivityRepository;
+import com.c.domain.activity.repository.IActivityRepository;
 import com.c.domain.activity.service.IRaffleActivityPartakeService;
 import com.c.types.enums.ResponseCode;
 import com.c.types.exception.AppException;
@@ -66,16 +66,14 @@ public abstract class AbstractRaffleActivityPartake implements IRaffleActivityPa
         ActivityEntity activityEntity = activityRepository.queryRaffleActivityByActivityId(activityId);
 
         // 校验：活动状态（非开启状态不可参与）
-        if (!ActivityStateVO.open.equals(activityEntity.getState())) {
-            throw new AppException(ResponseCode.ACTIVITY_STATE_ERROR.getCode(),
-                    ResponseCode.ACTIVITY_STATE_ERROR.getInfo());
+        if (!ActivityStateVO.OPEN.equals(activityEntity.getState())) {
+            throw new AppException(ResponseCode.ACTIVITY_STATE_ERROR);
         }
 
         // 校验：活动有效期（当前时间必须在活动生效期内）
         if (activityEntity.getBeginDateTime().after(currentDate) ||
                 activityEntity.getEndDateTime().before(currentDate)) {
-            throw new AppException(ResponseCode.ACTIVITY_DATE_ERROR.getCode(),
-                    ResponseCode.ACTIVITY_DATE_ERROR.getInfo());
+            throw new AppException(ResponseCode.ACTIVITY_DATE_ERROR);
         }
 
         // [3] 幂等性与重入性检查

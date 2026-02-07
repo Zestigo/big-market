@@ -13,8 +13,6 @@ import java.io.Serializable;
 @Data
 public class ActivityDrawRequestDTO implements Serializable {
 
-    private static final long serialVersionUID = 1L;
-
     /** 用户唯一 ID (必填) */
     private String userId;
 

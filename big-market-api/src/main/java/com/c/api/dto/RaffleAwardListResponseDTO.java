@@ -19,8 +19,6 @@ import java.io.Serializable;
 @NoArgsConstructor
 public class RaffleAwardListResponseDTO implements Serializable {
 
-    private static final long serialVersionUID = 1L;
-
     /** 奖品 ID */
     private Integer awardId;
 
@@ -41,4 +39,5 @@ public class RaffleAwardListResponseDTO implements Serializable {
 
     /** 距离解锁还需要抽奖的次数 */
     private Integer waitUnlockCount;
+
 }

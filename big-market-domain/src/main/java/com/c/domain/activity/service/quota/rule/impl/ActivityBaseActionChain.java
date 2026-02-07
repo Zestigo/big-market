@@ -39,23 +39,20 @@ public class ActivityBaseActionChain extends AbstractActionChain {
                 activityEntity.getActivityId());
 
         // 1. 校验活动状态：拦截非开启状态的活动
-        if (!ActivityStateVO.open.equals(activityEntity.getState())) {
-            throw new AppException(ResponseCode.ACTIVITY_STATE_ERROR.getCode(),
-                    ResponseCode.ACTIVITY_STATE_ERROR.getInfo());
+        if (!ActivityStateVO.OPEN.equals(activityEntity.getState())) {
+            throw new AppException(ResponseCode.ACTIVITY_STATE_ERROR);
         }
 
         // 2. 校验活动日期：验证当前时间是否在活动有效期 [Begin, End] 内
         Date currentDate = new Date();
         if (activityEntity.getBeginDateTime().after(currentDate) || activityEntity.getEndDateTime()
                                                                                   .before(currentDate)) {
-            throw new AppException(ResponseCode.ACTIVITY_DATE_ERROR.getCode(),
-                    ResponseCode.ACTIVITY_DATE_ERROR.getInfo());
+            throw new AppException(ResponseCode.ACTIVITY_DATE_ERROR);
         }
 
         // 3. 校验 SKU 静态库存：检查基础配置库存是否耗尽（作为第一层快速拦截）
         if (activitySkuEntity.getStockCountSurplus() <= 0) {
-            throw new AppException(ResponseCode.ACTIVITY_SKU_STOCK_ERROR.getCode(),
-                    ResponseCode.ACTIVITY_SKU_STOCK_ERROR.getInfo());
+            throw new AppException(ResponseCode.ACTIVITY_SKU_STOCK_ERROR);
         }
 
         // 4. 推进链路：基础校验通过，流转至下一个节点（例如：库存预扣节点）

@@ -40,43 +40,46 @@ public class StrategyRuleEntity {
     private String ruleDesc;
 
     /**
-     * 解析权重规则配置 (rule_weight)
-     * 设计意图：
-     * 1. 结构化解析：将非结构化的字符串 ruleValue 转换为业务易用的 Map 结构。
-     * 2. 格式示例：配置 "4000:101,102 5000:103"，表示 4000 积分可抽 101/102 奖品。
+     * 获取权重规则配置分组映射
+     * 描述：将配置字符串（如 "4000:101,102 5000:103,104"）解析为权重值与奖品 ID 集合的映射关系。
+     * 逻辑：1.模型校验 -> 2.规则按组切分 -> 3.校验配置格式 -> 4.流式转换奖品列表 -> 5.构建映射表
      *
-     * @return 权重分值 -> 对应的奖品ID集合。若非权重规则或格式非法，返回空 Map。
+     * @return 权重映射表 (Key: 积分阈值, Value: 奖品 ID 列表)
      */
     public Map<String, List<Integer>> getRuleValueGroup() {
-        // 1. 业务逻辑校验：仅针对 rule_weight 模型进行解析
+        // 1. 业务逻辑校验：仅针对权重规则模型(rule_weight)进行解析，且配置值不能为空
         if (!Constants.RULE_WEIGHT.equals(ruleModel) || StringUtils.isBlank(ruleValue)) {
             return Collections.emptyMap();
         }
 
-        // 2. 规则切分：按空格拆分多个权重维度
+        // 2. 规则切分：按照空格拆分出多个权重维度配置组
         String[] ruleGroups = ruleValue.split(Constants.SPACE);
         Map<String, List<Integer>> ruleValueGroups = new HashMap<>(ruleGroups.length);
 
         for (String rule : ruleGroups) {
+            // 过滤空字符串，增强解析健壮性
             if (StringUtils.isBlank(rule)) continue;
 
-            // 3. 键值拆分：解析 "积分阈值:奖品列表"
+            // 3. 键值对拆分：解析格式为 "积分阈值:奖品列表" 的子项 (示例: 4000:101,102)
             String[] parts = rule.split(Constants.COLON);
             if (parts.length != 2) {
-                // 抛出异常或记录日志，防止因配置错误导致线上抽奖逻辑异常
-                throw new IllegalArgumentException("strategy rule_weight configuration error, expected " +
-                        "[key:value] but got " + rule);
+                // 严谨校验：若格式不符合 [Key:Value]，抛出非法参数异常防止业务逻辑受损
+                throw new IllegalArgumentException("strategy rule_weight configuration error, expected [key:value] " +
+                        "but got " + rule);
             }
 
-            // 4. 数据转换：将逗号分隔的 ID 字符串转为 List<Integer>
-            List<Integer> awardIds = Arrays.stream(parts[1].split(Constants.SPLIT))
-                                           .filter(StringUtils::isNotBlank).map(Integer::parseInt)
-                                           .collect(Collectors.toList());
+            // 4. 数据类型转换：利用 Stream 流将逗号分隔的 ID 字符串解析为 Integer 列表
+            List<Integer> awardIds = Arrays
+                    .stream(parts[1].split(Constants.SPLIT))
+                    .filter(StringUtils::isNotBlank)
+                    .map(Integer::parseInt)
+                    .collect(Collectors.toList());
 
-            // 【修正逻辑】此处应存入 parts[0] (积分值)，而非原始的 rule 字符串
+            // 5. 结果填充：以积分阈值 (parts[0]) 为 Key 存入映射表
             ruleValueGroups.put(parts[0], awardIds);
         }
 
         return ruleValueGroups;
     }
+
 }

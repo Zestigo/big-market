@@ -39,7 +39,7 @@ public class UserRaffleOrderEntity {
     /** 下单时间（记录订单生成的物理时刻） */
     private Date orderTime;
 
-    /** 订单状态；create-创建、used-已使用、cancel-已作废 */
+    /** 订单状态；CREATE-创建、USED-已使用、CANCEL-已作废 */
     private UserRaffleOrderStateVO orderState;
 
     /** 活动结束时间（用于控制该订单在缓存或库中的生命周期） */

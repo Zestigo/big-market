@@ -2,6 +2,7 @@ package com.c.domain.strategy.service.raffle;
 
 import com.c.domain.strategy.model.entity.StrategyAwardEntity;
 import com.c.domain.strategy.model.vo.RuleTreeVO;
+import com.c.domain.strategy.model.vo.RuleWeightVO;
 import com.c.domain.strategy.model.vo.StrategyAwardRuleModelVO;
 import com.c.domain.strategy.model.vo.StrategyAwardStockKeyVO;
 import com.c.domain.strategy.repository.IStrategyRepository;
@@ -85,7 +86,10 @@ public class DefaultRaffleStrategy extends AbstractRaffleStrategy implements IRa
 
         // 2. 快速路径：若该奖品未配置任何后置规则树，说明直接中奖，无需额外校验
         if (null == strategyAwardRuleModelVO) {
-            return DefaultTreeFactory.StrategyAwardVO.builder().awardId(awardId).build();
+            return DefaultTreeFactory.StrategyAwardVO
+                    .builder()
+                    .awardId(awardId)
+                    .build();
         }
 
         // 3. 拓扑加载：根据 RuleModels 获取完整的决策树视图（节点 + 连线）
@@ -161,5 +165,31 @@ public class DefaultRaffleStrategy extends AbstractRaffleStrategy implements IRa
     @Override
     public Map<String, Integer> queryAwardRuleLockCount(String[] treeIds) {
         return strategyRepository.queryAwardRuleLockCount(treeIds);
+    }
+
+    /**
+     * 根据活动ID查询奖品权重规则配置
+     *
+     * @param activityId 活动ID
+     * @return 权重规则列表
+     */
+    @Override
+    public List<RuleWeightVO> queryAwardRuleWeightByActivityId(Long activityId) {
+        // 1. 根据活动 ID 查询关联的策略 ID
+        Long strategyId = strategyRepository.queryStrategyIdByActivityId(activityId);
+        // 2. 根据策略 ID 查询对应的奖品权重规则配置
+        return queryAwardRuleWeight(strategyId);
+    }
+
+    /**
+     * 根据策略ID查询奖品权重规则配置
+     *
+     * @param strategyId 策略ID
+     * @return 权重规则列表
+     */
+    @Override
+    public List<RuleWeightVO> queryAwardRuleWeight(Long strategyId) {
+        // 根据策略 ID 直接查询奖品权重规则配置（含权重阈值、奖品列表等）
+        return strategyRepository.queryAwardRuleWeight(strategyId);
     }
 }

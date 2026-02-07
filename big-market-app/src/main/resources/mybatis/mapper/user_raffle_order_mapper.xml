@@ -16,25 +16,28 @@
     </resultMap>
 
     <insert id="insert" parameterType="com.c.infrastructure.po.UserRaffleOrder">
-        insert into user_raffle_order(user_id, activity_id, activity_name, strategy_id, order_id, order_time, order_state, create_time, update_time)
-        values (#{userId}, #{activityId}, #{activityName}, #{strategyId}, #{orderId}, #{orderTime}, #{orderState}, now(), now())
+        INSERT INTO user_raffle_order (user_id, activity_id, activity_name, strategy_id,
+                                       order_id, order_time, order_state, create_time, update_time)
+        VALUES (#{userId}, #{activityId}, #{activityName}, #{strategyId},
+                #{orderId}, #{orderTime}, #{orderState}, NOW(), NOW())
     </insert>
 
     <update id="updateUserRaffleOrderStateUsed" parameterType="com.c.infrastructure.po.UserRaffleOrder">
-        update user_raffle_order
-        set order_state = 'used',
-            update_time = now()
-        where user_id = #{userId}
-          and order_id = #{orderId}
-          and order_state = 'create'
+        UPDATE user_raffle_order
+        SET order_state = 'used',
+            update_time = NOW()
+        WHERE user_id = #{userId}
+          AND order_id = #{orderId}
+          AND order_state = 'create'
     </update>
 
     <select id="queryNoUsedRaffleOrder" parameterType="com.c.infrastructure.po.UserRaffleOrder" resultMap="dataMap">
-        select user_id, activity_id, activity_name, strategy_id, order_id, order_time, order_state
-        from user_raffle_order
-        where user_id = #{userId}
-          and activity_id = #{activityId}
-          and order_state = 'create'
+        SELECT user_id, activity_id, activity_name, strategy_id, order_id, order_time, order_state
+        FROM user_raffle_order
+        WHERE user_id = #{userId}
+          AND activity_id = #{activityId}
+          AND order_state = 'create'
+        LIMIT 1
     </select>
 
 </mapper>

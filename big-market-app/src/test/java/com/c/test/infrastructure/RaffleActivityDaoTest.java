@@ -44,7 +44,7 @@ public class RaffleActivityDaoTest {
         Assert.assertEquals("活动ID不匹配", activityId, raffleActivity.getActivityId());
 
         // 5. 业务状态校验（根据你的数据库实际预置数据来定）
-        // Assert.assertEquals("活动状态应为开启", "open", raffleActivity.getState());
+        // Assert.assertEquals("活动状态应为开启", "OPEN", raffleActivity.getState());
     }
 
     /**

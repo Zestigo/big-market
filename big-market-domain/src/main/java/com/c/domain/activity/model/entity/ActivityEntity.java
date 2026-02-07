@@ -42,7 +42,7 @@ public class ActivityEntity {
     /** 抽奖策略 ID：决定了该活动使用哪套职责链、中奖概率以及规则树。 */
     private Long strategyId;
 
-    /** 活动当前状态，枚举：create-创建、open-开启、close-关闭。 */
+    /** 活动当前状态，枚举：CREATE-创建、OPEN-开启、CLOSE-关闭。 */
     private ActivityStateVO state;
 
 }

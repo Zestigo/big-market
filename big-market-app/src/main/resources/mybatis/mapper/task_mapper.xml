@@ -4,43 +4,44 @@
 
     <resultMap id="dataMap" type="com.c.infrastructure.po.Task">
         <id column="id" property="id"/>
-        <result column="topic" property="topic"/>
         <result column="user_id" property="userId"/>
-        <result column="message" property="message"/>
+        <result column="exchange" property="exchange"/>
+        <result column="routing_key" property="routingKey"/>
         <result column="message_id" property="messageId"/>
+        <result column="message" property="message"/>
         <result column="state" property="state"/>
         <result column="create_time" property="createTime"/>
         <result column="update_time" property="updateTime"/>
     </resultMap>
 
-    <insert id="insert" parameterType="com.c.infrastructure.dao.ITaskDao">
-        insert into task(user_id, topic, message_id, message, state, create_time, update_time)
-        values (#{userId}, #{topic}, #{messageId}, #{message}, #{state}, now(), now())
+    <insert id="insert" parameterType="com.c.infrastructure.po.Task">
+        INSERT INTO task (user_id, exchange, routing_key, message_id, message, state, create_time, update_time)
+        VALUES (#{userId}, #{exchange}, #{routingKey}, #{messageId}, #{message}, #{state}, NOW(), NOW())
     </insert>
 
-    <update id="updateTaskSendMessageCompleted"
-            parameterType="com.c.infrastructure.dao.ITaskDao">
-        update task
-        set state       = 'completed',
-            update_time = now()
-        where user_id = #{userId}
-          and message_id = #{messageId}
+    <update id="updateTaskSendMessageCompleted" parameterType="com.c.infrastructure.po.Task">
+        UPDATE task
+        SET state       = 'completed',
+            update_time = NOW()
+        WHERE user_id = #{userId}
+          AND message_id = #{messageId}
+          AND state != 'completed'
     </update>
 
-    <update id="updateTaskSendMessageFail" parameterType="com.c.infrastructure.dao.ITaskDao">
-        update task
-        set state       = 'fail',
-            update_time = now()
-        where user_id = #{userId}
-          and message_id = #{messageId}
+    <update id="updateTaskSendMessageFail" parameterType="com.c.infrastructure.po.Task">
+        UPDATE task
+        SET state       = 'fail',
+            update_time = NOW()
+        WHERE user_id = #{userId}
+          AND message_id = #{messageId}
     </update>
 
     <select id="queryNoSendMessageTaskList" resultMap="dataMap">
-        select user_id, topic, message_id, message
-        from task
-        where state = 'fail'
-           or (state = 'create' and now() - update_time > 600)
-        limit 10
+        SELECT user_id, exchange, routing_key, message_id, message, state
+        FROM task
+        WHERE state = 'fail'
+           OR (state = 'create' AND update_time &lt; DATE_SUB(NOW(), INTERVAL 1 MINUTE))
+        LIMIT 20
     </select>
 
 </mapper>

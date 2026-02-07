@@ -61,7 +61,7 @@ public class AwardServiceTest {
             userAwardRecordEntity.setAwardId(101);
             userAwardRecordEntity.setAwardTitle("OpenAI 增加使用次数");
             userAwardRecordEntity.setAwardTime(new Date());
-            userAwardRecordEntity.setAwardState(AwardStateVO.create);
+            userAwardRecordEntity.setAwardState(AwardStateVO.CREATE);
 
             try {
                 awardService.saveUserAwardRecord(userAwardRecordEntity);

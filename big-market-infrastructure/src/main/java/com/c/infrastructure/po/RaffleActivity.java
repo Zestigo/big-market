@@ -35,7 +35,7 @@ public class RaffleActivity {
     /** 抽奖策略ID（关联 Strategy 表，定义具体怎么抽奖） */
     private Long strategyId;
 
-    /** 活动状态（open-开启、close-关闭、wait_open-待开启） */
+    /** 活动状态（OPEN-开启、CLOSE-关闭、wait_open-待开启） */
     private String state;
 
     /** 创建时间 */

@@ -22,10 +22,7 @@ public class RuleMatterEntity {
     /** 策略唯一标识：关联具体的抽奖方案配置 */
     private Long strategyId;
 
-    /**
-     * 抽奖奖品ID
-     * 注意：若规则作用于策略层面（如前置拦截），此字段可不传
-     */
+    /** 抽奖奖品ID：若规则作用于策略层面（如前置拦截），此字段可不传 */
     private Integer awardId;
 
     /**

@@ -7,22 +7,20 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.Resource;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
 
 /**
- * 策略奖品库存异步更新定时任务
+ * 基础设施层：策略奖品库存异步同步任务
+ * <p>
  * 职责：
- * 1. 异步同步：消费奖品库存消耗队列，将 Redis 预扣减后的库存状态同步至数据库持久层。
- * 2. 削峰填谷：通过批处理机制减轻数据库在高并发抽奖场景下的直接写入压力。
+ * 1. 最终一致性维护：将 Redis 中预扣减的逻辑库存状态，异步刷新至数据库物理表。
+ * 2. 削峰填谷：通过批处理机制，缓解高并发秒杀时刻对数据库生成的 IOPS 压力。
+ * 3. 错峰调度：通过合理的 Cron 表达式，避开整点任务高峰。
  *
  * @author cyh
  * @date 2026/01/20
  */
 @Slf4j
-@Component()
+@Component
 public class UpdateStrategyAwardStockJob {
 
     @Resource
@@ -30,44 +28,45 @@ public class UpdateStrategyAwardStockJob {
 
     /**
      * 执行库存同步任务
-     * 调度策略：每分钟从第 2 秒开始，每 15 秒触发一次（2, 17, 32, 47）。
-     * 优化点：通过时间偏移，与活动 SKU 库存任务错峰执行，避免数据库连接瞬时竞争。
+     * 调度策略：每 5 秒触发一次。
+     * 1. 实时性保障：采用高频触发模式，缩短 Redis 与 DB 之间的数据差值。
+     * 2. 消息驱动：从阻塞队列/延迟队列中提取待更新标识。
+     * 3. 容错处理：单条记录更新失败不影响整体任务进度。
      */
-    @Scheduled(cron = "0 */1 * * * ?")
+    @Scheduled(cron = "0/5 * * * * ?")
     public void exec() {
         try {
-            // 1. 临时容器：用于记录本轮扫描到的待处理奖品，实现去重与元数据暂存
-            Set<String> distinctKeys = new HashSet<>();
-            Map<String, StrategyAwardStockKeyVO> dataMap = new HashMap<>();
-
-            // 2. 循环提取队列：非阻塞式获取当前所有待处理的消息
+            // [步骤 1] 循环提取待处理库存消息，直至队列清空
             while (true) {
-                StrategyAwardStockKeyVO vo = raffleStock.takeQueueValue();
-                if (vo == null) break; // 队列为空则结束提取
+                // 从领域层提供的消费接口获取待更新对象
+                StrategyAwardStockKeyVO strategyAwardStockKeyVO = raffleStock.takeQueueValue();
 
-                // 组合唯一键（策略ID + 奖品ID），确保同奖品在本轮任务中仅触发一次数据库写操作
-                String key = vo.getStrategyId() + "_" + vo.getAwardId();
-                distinctKeys.add(key);
-                dataMap.putIfAbsent(key, vo);
-            }
+                // 队列为空则退出当前任务周期
+                if (null == strategyAwardStockKeyVO) {
+                    break;
+                }
 
-            // 无任务直接返回，节省日志与计算资源
-            if (distinctKeys.isEmpty()) return;
-
-            // 3. 幂等批量处理：遍历去重后的奖品列表，同步物理库存
-            for (String key : distinctKeys) {
-                StrategyAwardStockKeyVO vo = dataMap.get(key);
+                // [步骤 2] 执行数据库库存同步逻辑
                 try {
-                    log.info("定时任务启动：同步策略奖品物理库存 strategyId:{}, awardId:{}", vo.getStrategyId(),
-                            vo.getAwardId());
-                    // 核心动作：调用领域服务，将预扣产生的消耗记录同步至数据库
-                    raffleStock.updateStrategyAwardStock(vo.getStrategyId(), vo.getAwardId());
+                    log.info("开始同步奖品物理库存 | strategyId: {} | awardId: {}",
+                            strategyAwardStockKeyVO.getStrategyId(),
+                            strategyAwardStockKeyVO.getAwardId());
+
+                    // 核心动作：更新数据库中 strategy_award 表的 surplus_count
+                    raffleStock.updateStrategyAwardStock(
+                            strategyAwardStockKeyVO.getStrategyId(),
+                            strategyAwardStockKeyVO.getAwardId()
+                    );
+
                 } catch (Exception e) {
-                    log.error("定时任务异常：同步策略奖品库存失败 strategyId:{}", vo.getStrategyId(), e);
+                    // 单条记录同步异常，记录日志并继续处理后续任务，防止任务中断
+                    log.error("同步奖品物理库存失败 | strategyId: {} | awardId: {}",
+                            strategyAwardStockKeyVO.getStrategyId(),
+                            strategyAwardStockKeyVO.getAwardId(), e);
                 }
             }
         } catch (Exception e) {
-            log.error("定时任务严重异常：奖品库存处理链路中断", e);
+            log.error("策略奖品库存异步更新任务执行严重异常", e);
         }
     }
 }

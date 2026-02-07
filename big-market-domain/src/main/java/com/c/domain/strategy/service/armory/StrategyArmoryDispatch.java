@@ -66,8 +66,7 @@ public class StrategyArmoryDispatch implements IStrategyArmory, IStrategyDispatc
         StrategyRuleEntity strategyRule = repository.queryStrategyRule(strategyId, ruleWeight);
         if (null == strategyRule) {
             log.error("策略规则装配异常：策略ID {} 缺少权重规则详情 {}", strategyId, ruleWeight);
-            throw new AppException(ResponseCode.STRATEGY_RULE_WEIGHT_IS_NULL.getCode(),
-                    ResponseCode.STRATEGY_RULE_WEIGHT_IS_NULL.getInfo());
+            throw new AppException(ResponseCode.STRATEGY_RULE_WEIGHT_IS_NULL);
         }
 
         // 6. 按照规则中的不同阶梯（如：1000积分档、2000积分档）分别装配独立的概率查找表

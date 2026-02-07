@@ -28,7 +28,7 @@ public interface IStrategyRepository {
      * 查询指定策略下的奖品配置清单
      *
      * @param strategyId 策略 ID
-     * @return {@link List<StrategyAwardEntity>} 策略奖品实体列表
+     * @return 策略奖品实体列表
      */
     List<StrategyAwardEntity> queryStrategyAwardList(Long strategyId);
 
@@ -36,7 +36,7 @@ public interface IStrategyRepository {
      * 根据策略 ID 查询策略主体详情
      *
      * @param strategyId 策略 ID
-     * @return {@link StrategyEntity} 策略实体对象
+     * @return 策略实体对象
      */
     StrategyEntity queryStrategyEntityByStrategyId(Long strategyId);
 
@@ -45,7 +45,7 @@ public interface IStrategyRepository {
      *
      * @param strategyId 策略 ID
      * @param awardId    奖品 ID
-     * @return {@link StrategyAwardEntity} 奖品实体对象
+     * @return 奖品实体对象
      */
     StrategyAwardEntity queryStrategyAwardEntity(Long strategyId, Integer awardId);
 
@@ -54,7 +54,7 @@ public interface IStrategyRepository {
      *
      * @param strategyId 策略 ID
      * @param ruleModel  规则模型标识
-     * @return {@link StrategyRuleEntity} 策略规则实体
+     * @return 策略规则实体
      */
     StrategyRuleEntity queryStrategyRule(Long strategyId, String ruleModel);
 
@@ -117,7 +117,7 @@ public interface IStrategyRepository {
      * 将扁平数据构建为包含根节点、动作节点及连线的拓扑结构。
      *
      * @param treeId 决策树唯一标识
-     * @return {@link RuleTreeVO} 决策树全量配置
+     * @return 决策树全量配置
      */
     RuleTreeVO queryRuleTreeVOByTreeId(String treeId);
 
@@ -126,7 +126,7 @@ public interface IStrategyRepository {
      *
      * @param strategyId 策略 ID
      * @param awardId    奖品 ID
-     * @return {@link StrategyAwardRuleModelVO} 奖品规则模型 VO
+     * @return 奖品规则模型 VO
      */
     StrategyAwardRuleModelVO queryStrategyAwardRuleModel(Long strategyId, Integer awardId);
 
@@ -146,7 +146,6 @@ public interface IStrategyRepository {
      * 分布式原子库存扣减（带自动续期/过期策略）
      * 1. 采用 Redis + Lua 脚本实现“比较并扣减”的原子操作，防止并发超卖。
      * 2. 利用 endDateTime 判定缓存时效：若 key 首次创建或需更新，则参考活动结束时间设置 TTL。
-     * 3. 扣减成功后，需配合发送任务至延迟队列（如：takeQueueValue），确保数据库物理库存最终一致。
      *
      * @param cacheKey    库存标识 Key (例如：strategy_award_stock_key_{strategyId}_{awardId})
      * @param endDateTime 活动结束时间，用于兜底缓存的过期策略，防止库存 key 长期占用内存资源
@@ -157,7 +156,6 @@ public interface IStrategyRepository {
     /**
      * 分布式原子库存扣减（标准模式）
      * 适用场景：已完成预热（Armory）的库存 Key 扣减。
-     * 逻辑：直接执行 Lua 脚本进行原子递减（DECR/LUA）。该操作完全基于 Redis 内存，具备高性能响应能力。
      *
      * @param cacheKey 库存标识 Key
      * @return 扣减结果：true - 扣减成功；false - 库存不足
@@ -175,7 +173,7 @@ public interface IStrategyRepository {
     /**
      * 从队列中获取待处理的库存流水 (Job 同步任务使用)
      *
-     * @return {@link StrategyAwardStockKeyVO} 库存流水标识
+     * @return 库存流水标识
      */
     StrategyAwardStockKeyVO takeQueueValue();
 
@@ -213,7 +211,25 @@ public interface IStrategyRepository {
      * 批量查询奖品规则锁定门槛次数
      *
      * @param treeIds 规则树 ID 数组
-     * @return Key: 树ID, Value: 锁定次数值
+     * @return 规则锁定次数 Map (Key: 树ID, Value: 锁定次数值)
      */
     Map<String, Integer> queryAwardRuleLockCount(String[] treeIds);
+
+    /**
+     * 查询用户在该策略下的全量累计抽奖次数
+     * 用于权重规则 (RuleWeight) 的阶梯判定。
+     *
+     * @param userId     用户唯一标识
+     * @param strategyId 策略 ID
+     * @return 累计抽奖总数
+     */
+    Integer queryTotalUserRaffleCount(String userId, Long strategyId);
+
+    /**
+     * 查询策略对应的奖品权重规则配置列表
+     *
+     * @param strategyId 策略 ID
+     * @return 权重规则 VO 列表
+     */
+    List<RuleWeightVO> queryAwardRuleWeight(Long strategyId);
 }

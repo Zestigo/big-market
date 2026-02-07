@@ -19,8 +19,6 @@ import java.io.Serializable;
 @NoArgsConstructor
 public class RaffleAwardListRequestDTO implements Serializable {
 
-    private static final long serialVersionUID = 1L;
-
     /**
      * 抽奖策略 ID
      * @deprecated 该字段已废弃，建议通过活动 ID 进行关联查询

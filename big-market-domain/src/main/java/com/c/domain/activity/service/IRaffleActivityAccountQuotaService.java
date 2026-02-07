@@ -1,5 +1,6 @@
 package com.c.domain.activity.service;
 
+import com.c.domain.activity.model.entity.ActivityAccountEntity;
 import com.c.domain.activity.model.entity.SkuRechargeEntity;
 
 /**
@@ -29,4 +30,23 @@ public interface IRaffleActivityAccountQuotaService {
      * @return 当日该用户已参与活动的累计计数值
      */
     Integer queryRaffleActivityAccountDayPartakeCount(Long activityId, String userId);
+
+    /**
+     * 查询用户活动账户额度实体
+     * 根据活动ID和用户ID，获取用户在该活动下的总额度、日额度、月额度及其剩余消耗情况。
+     *
+     * @param activityId 活动ID
+     * @param userId     用户唯一ID
+     * @return ActivityAccountEntity 活动账户额度实体对象
+     */
+    ActivityAccountEntity queryActivityAccountEntity(Long activityId, String userId);
+
+    /**
+     * 查询用户在特定活动下的已参与抽奖次数
+     *
+     * @param activityId 活动ID
+     * @param userId     用户ID
+     * @return 已参与次数
+     */
+    Integer queryRaffleActivityAccountPartakeCount(Long activityId, String userId);
 }

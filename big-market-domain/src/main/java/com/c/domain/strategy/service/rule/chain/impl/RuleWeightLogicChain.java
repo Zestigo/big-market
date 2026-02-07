@@ -35,12 +35,6 @@ public class RuleWeightLogicChain extends AbstractLogicChain {
     private IStrategyDispatch strategyDispatch;
 
     /**
-     * 模拟用户当前权重分值
-     * TODO: 生产环境应从 Redis 缓存、数据库或上下文 Session 中获取真实数值
-     */
-    public long userScore = 0L;
-
-    /**
      * 权重过滤核心逻辑
      *
      * @param userId     用户ID
@@ -52,35 +46,46 @@ public class RuleWeightLogicChain extends AbstractLogicChain {
         String ruleModel = ruleModel();
         log.info("抽奖责任链-权重过滤开始 userId: {}, strategyId: {}, ruleModel: {}", userId, strategyId, ruleModel);
 
-        // 1. 获取策略配置值。格式示例："4000:101,102 5000:101,102,103"
+        // 1. 查询权重规则配置。格式示例："4000:101,102 5000:101,102,103"
+        // 含义：累计抽奖满 4000 次，在 101,102 中抽奖；满 5000 次，在 101,102,103 中抽奖
         String ruleValue = strategyRepository.queryStrategyRuleValue(strategyId, ruleModel);
         if (StringUtils.isBlank(ruleValue)) {
-            log.warn("抽奖责任链-权重规则未配置，直接放行流转至下一节点. strategyId: {}", strategyId);
+            log.info("抽奖责任链-权重规则未配置，直接放行流转至下一节点. strategyId: {}", strategyId);
             return next().logic(userId, strategyId);
         }
 
-        // 2. 解析规则配置：将配置字符串转换为有序映射 (Key: 权重阈值, Value: 规则全字符串)
+        // 2. 解析规则配置：将配置字符串转换为有序映射 (Key: 触发阈值次数, Value: 对应奖品列表字符串)
         Map<Long, String> ruleValueMap = getAnalyticalValue(ruleValue);
         if (ruleValueMap.isEmpty()) {
-            log.warn("抽奖责任链-权重规则解析结果为空，直接放行. strategyId: {}", strategyId);
+            log.warn("抽奖责任链-权重规则解析为空，直接放行. strategyId: {}", strategyId);
             return next().logic(userId, strategyId);
         }
 
-        // 3. 匹配算法：在已配置的权重 Key 中，筛选出 <= userScore 的集合，并取其中的最大值
-        Long matchedKey = ruleValueMap.keySet().stream().filter(key -> userScore >= key).max(Long::compare)
-                                      .orElse(null);
+        // 3. 获取用户在该策略关联活动下的【累计抽奖次数】（作为权重判定的依据）
+        Integer userRaffleCount = strategyRepository.queryTotalUserRaffleCount(userId, strategyId);
 
-        // 4. 判定匹配结果：若命中档位，则执行该权重等级下的独立抽奖，并【接管】责任链流程
+        // 4. 寻找匹配档位：在已配置的权重阈值中，找到用户已达到的最大档位 (Key <= userRaffleCount)
+        Long matchedKey = ruleValueMap
+                .keySet()
+                .stream()
+                .filter(key -> userRaffleCount >= key)
+                .max(Long::compare)
+                .orElse(null);
+
+        // 5. 判定匹配结果：若命中权重档位，则执行该等级下的独立随机抽奖，并【截断】责任链后续流程
         if (null != matchedKey) {
             Integer awardId = strategyDispatch.getRandomAwardId(strategyId, ruleValueMap.get(matchedKey));
-            log.info("抽奖责任链-权重匹配成功 userId: {}, strategyId: {}, 命中档位: {}, 产出奖品ID: {}", userId, strategyId,
-                    matchedKey, awardId);
-            return DefaultChainFactory.StrategyAwardVO.builder().awardId(awardId).logicModel(ruleModel())
-                                                      .build();
+            log.info("抽奖责任链-权重匹配成功 userId: {}, strategyId: {}, 命中档位: {}, 产出奖品ID: {}", userId, strategyId, matchedKey,
+                    awardId);
+            return DefaultChainFactory.StrategyAwardVO
+                    .builder()
+                    .awardId(awardId)
+                    .logicModel(ruleModel())
+                    .build();
         }
 
-        // 5. 边界处理：用户积分未达到任何最低权重门槛，放行流转至后续通用抽奖逻辑
-        log.info("抽奖责任链-权重放行（用户积分未达标） userId: {}, strategyId: {}", userId, strategyId);
+        // 6. 边界处理：用户累计抽奖次数未达到任何权重门槛，放行流转至后续节点（如默认随机抽奖节点）
+        log.info("抽奖责任链-权重放行（累计抽奖次数未达标） userId: {}, strategyId: {}, 累计次数: {}", userId, strategyId, userRaffleCount);
         return next().logic(userId, strategyId);
     }
 

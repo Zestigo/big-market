@@ -62,7 +62,7 @@ public class RaffleActivityAccountDay implements Serializable {
      *
      * @return 当前日期，格式如 "2026-02-03"
      */
-    public String currentDay() {
+    public static String currentDay() {
         return LocalDate.now().format(DAY_FORMATTER);
     }
 }

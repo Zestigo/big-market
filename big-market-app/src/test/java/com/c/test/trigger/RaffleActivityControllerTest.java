@@ -4,6 +4,8 @@ import com.alibaba.fastjson.JSON;
 import com.c.api.IRaffleActivityService;
 import com.c.api.dto.ActivityDrawRequestDTO;
 import com.c.api.dto.ActivityDrawResponseDTO;
+import com.c.api.dto.UserActivityAccountRequestDTO;
+import com.c.api.dto.UserActivityAccountResponseDTO;
 import com.c.types.enums.ResponseCode;
 import com.c.types.model.Response;
 import lombok.extern.slf4j.Slf4j;
@@ -69,7 +71,9 @@ public class RaffleActivityControllerTest {
             // 4. 关键业务断言
             Assert.assertNotNull("响应结果不应为空", response);
 
-            if (ResponseCode.SUCCESS.getCode().equals(response.getCode())) {
+            if (ResponseCode.SUCCESS
+                    .getCode()
+                    .equals(response.getCode())) {
                 ActivityDrawResponseDTO data = response.getData();
                 log.info("🎉 抽奖成功！奖品ID: {}, 奖品名称: {}", data.getAwardId(), data.getAwardTitle());
             } else {
@@ -80,5 +84,51 @@ public class RaffleActivityControllerTest {
             log.error("❌ 抽奖执行发生系统级异常", e);
             Assert.fail("不应抛出未捕获的异常（如 NPE）");
         }
+    }
+
+    @Test
+    public void test_isCalendarSignRebate() {
+        // 1. 准备测试数据
+        String userId = "cyh";
+
+        // 2. 执行查询：判断用户是否满足日历签到返利资格
+        Response<Boolean> response = raffleActivityService.isCalendarSignRebate(userId);
+
+        // 3. 打印结果：记录日志以便排查问题
+        log.info("测试结果 userId:{} response:{}", userId, JSON.toJSONString(response));
+
+        // 4. 严谨断言：验证返回码为成功，且业务数据不为空
+        Assert.assertEquals(ResponseCode.SUCCESS.getCode(), response.getCode());
+        Assert.assertNotNull(response.getData());
+    }
+
+    @Test
+    public void test_queryUserActivityAccount() {
+        // 1. 构建请求参数：查询特定活动下的用户账户额度（总额度、日额度、月额度）
+        UserActivityAccountRequestDTO request = new UserActivityAccountRequestDTO();
+        request.setActivityId(100301L);
+        request.setUserId("cyh");
+
+        // 2. 调用接口：获取用户活动账户镜像
+        Response<UserActivityAccountResponseDTO> response = raffleActivityService.queryUserActivityAccount(request);
+
+        // 3. 记录请求与响应：在 CI/CD 环境下提供完整的审计路径
+        log.info("请求参数：{}", JSON.toJSONString(request));
+        log.info("测试结果：{}", JSON.toJSONString(response));
+    }
+
+    @Test
+    public void test_queryUserActivityAcco1unt() {
+        // 1. 构建请求参数：查询特定活动下的用户账户额度（总额度、日额度、月额度）
+        UserActivityAccountRequestDTO request = new UserActivityAccountRequestDTO();
+        request.setActivityId(100301L);
+        request.setUserId("cyh");
+
+        // 2. 调用接口：获取用户活动账户镜像
+        Response<UserActivityAccountResponseDTO> response = raffleActivityService.queryUserActivityAccount(request);
+
+        // 3. 记录请求与响应：在 CI/CD 环境下提供完整的审计路径
+        log.info("请求参数：{}", JSON.toJSONString(request));
+        log.info("测试结果：{}", JSON.toJSONString(response));
     }
 }

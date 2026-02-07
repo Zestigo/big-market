@@ -8,18 +8,26 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * RabbitMQ 消息中间件配置类
- * <p>
- * 职责：
- * 1. 声明业务交换机（Exchange）、队列（Queue）及绑定关系（Binding）。
- * 2. 构建自动化基础设施：Spring 启动时会自动根据此配置在 RabbitMQ 中创建缺失的组件。
- * 3. 容错机制：配置死信队列（Dead Letter Exchange），确保异常消息可追溯、不丢失。
- * 4. 序列化标准：定义全量消息使用 JSON 格式传输，确保异构系统间的通信兼容性。
+ * 基础设施配置：RabbitMQ 消息中间件
+ * 1. 业务链路定义：负责库存售罄同步、奖品发放分发、行为返利投递三大核心业务的消息流转配置。
+ * 2. 容错保障体系：构建死信交换机（DLX）机制，确保执行异常的消息能够进入补偿队列暂存。
+ * 3. 序列化标准化：强制使用 JSON 格式替代 JDK 原生序列化，保障跨语言兼容性与可读性。
+ *
+ * @author cyh
+ * @date 2026/02/05
  */
 @Configuration
 public class RabbitMQConfig {
 
-    // --- 库存相关属性注入 ---
+    /** 死信交换机：用于接收所有业务队列中因重试耗尽或逻辑异常而失败的消息 */
+    private static final String DLX_EXCHANGE = "dlx_exchange";
+    /** 死信路由键：统一指向死信补偿队列 */
+    private static final String DLX_ROUTING_KEY = "dlx_key";
+    /** 公共死信队列：作为系统的“垃圾站”或“回收站”，由人工或 Job 介入处理 */
+    private static final String DLX_QUEUE = "common_dead_letter_queue";
+
+    // --- 属性注入：从配置文件（application.yml）动态加载 ---
+
     @Value("${spring.rabbitmq.topic.activity_sku_stock.exchange}")
     private String skuExchange;
     @Value("${spring.rabbitmq.topic.activity_sku_stock.queue}")
@@ -27,7 +35,6 @@ public class RabbitMQConfig {
     @Value("${spring.rabbitmq.topic.activity_sku_stock.routing-key}")
     private String skuRoutingKey;
 
-    // --- 发奖相关属性注入 ---
     @Value("${spring.rabbitmq.topic.send_award.exchange}")
     private String awardExchange;
     @Value("${spring.rabbitmq.topic.send_award.queue}")
@@ -35,103 +42,112 @@ public class RabbitMQConfig {
     @Value("${spring.rabbitmq.topic.send_award.routing-key}")
     private String awardRoutingKey;
 
-    // --- 1. 库存售罄业务链路配置 ---
+    @Value("${spring.rabbitmq.topic.send_rebate.exchange}")
+    private String rebateExchange;
+    @Value("${spring.rabbitmq.topic.send_rebate.queue}")
+    private String rebateQueue;
+    @Value("${spring.rabbitmq.topic.send_rebate.routing-key}")
+    private String rebateRoutingKey;
 
-    /**
-     * 定义库存售罄 Topic 交换机
-     * Topic 模式允许通过通配符进行消息分发，适合未来复杂的库存监控场景。
-     */
+    // --- 1. 库存售罄业务链路：用于秒杀场景下活动库存消耗的实时同步 ---
+
     @Bean
     public TopicExchange activitySkuStockExchange() {
         return new TopicExchange(skuExchange, true, false);
     }
 
-    /**
-     * 定义库存售罄核心队列
-     * 设置消息持久化（durable），并绑定死信交换机，当消费失败并拒绝时，消息将进入死信链路。
-     */
     @Bean
     public Queue activitySkuStockQueue() {
-        return QueueBuilder.durable(skuQueue)
-                           .deadLetterExchange("dlx_exchange")
-                           .deadLetterRoutingKey("dlx_key")
-                           .build();
+        return QueueBuilder
+                .durable(skuQueue)
+                .deadLetterExchange(DLX_EXCHANGE)
+                .deadLetterRoutingKey(DLX_ROUTING_KEY)
+                .build();
     }
 
-    /**
-     * 绑定库存交换机与队列
-     */
     @Bean
     public Binding bindingActivitySkuStock() {
-        return BindingBuilder.bind(activitySkuStockQueue()).to(activitySkuStockExchange()).with(skuRoutingKey);
+        return BindingBuilder
+                .bind(activitySkuStockQueue())
+                .to(activitySkuStockExchange())
+                .with(skuRoutingKey);
     }
 
-    // --- 2. 发送奖品业务链路配置 (对接 Repository 任务表) ---
+    // --- 2. 发送奖品业务链路：解耦抽奖逻辑与奖品发放（发货）逻辑 ---
 
-    /**
-     * 定义发送奖品 Direct 交换机
-     * Direct 模式提供点对点的精确投递，确保奖品发放指令准确到达奖品服务。
-     */
     @Bean
     public DirectExchange sendAwardExchange() {
         return new DirectExchange(awardExchange, true, false);
     }
 
-    /**
-     * 定义发送奖品队列
-     */
     @Bean
     public Queue sendAwardQueue() {
-        return QueueBuilder.durable(awardQueue)
-                           .deadLetterExchange("dlx_exchange")
-                           .deadLetterRoutingKey("dlx_key")
-                           .build();
+        return QueueBuilder
+                .durable(awardQueue)
+                .deadLetterExchange(DLX_EXCHANGE)
+                .deadLetterRoutingKey(DLX_ROUTING_KEY)
+                .build();
     }
 
-    /**
-     * 绑定发送奖品链路
-     */
     @Bean
     public Binding bindingSendAward() {
-        return BindingBuilder.bind(sendAwardQueue()).to(sendAwardExchange()).with(awardRoutingKey);
+        return BindingBuilder
+                .bind(sendAwardQueue())
+                .to(sendAwardExchange())
+                .with(awardRoutingKey);
     }
 
-    // --- 3. 死信队列 (DLX) 保障体系 ---
+    // --- 3. 发送返利业务链路：支撑签到、支付等行为后的营销返利发放 ---
 
-    /**
-     * 声明通用死信交换机
-     * 职责：作为所有异常消息的“中转站”。
-     */
+    @Bean
+    public TopicExchange sendRebateExchange() {
+        return new TopicExchange(rebateExchange, true, false);
+    }
+
+    @Bean
+    public Queue sendRebateQueue() {
+        return QueueBuilder
+                .durable(rebateQueue)
+                .deadLetterExchange(DLX_EXCHANGE)
+                .deadLetterRoutingKey(DLX_ROUTING_KEY)
+                .build();
+    }
+
+    @Bean
+    public Binding bindingSendRebate() {
+        return BindingBuilder
+                .bind(sendRebateQueue())
+                .to(sendRebateExchange())
+                .with(rebateRoutingKey);
+    }
+
+    // --- 4. 死信队列 (DLX) 保障体系：全系统的最后一道防线 ---
+
     @Bean
     public DirectExchange dlxExchange() {
-        return new DirectExchange("dlx_exchange");
+        return new DirectExchange(DLX_EXCHANGE, true, false);
     }
 
-    /**
-     * 声明通用死信队列
-     * 职责：物理落地存储异常消息，用于后期人工介入排查或自动化重试补偿。
-     */
     @Bean
     public Queue deadLetterQueue() {
-        return new Queue("common_dead_letter_queue", true);
+        return QueueBuilder
+                .durable(DLX_QUEUE)
+                .build();
     }
 
-    /**
-     * 绑定死信链路
-     */
     @Bean
     public Binding deadLetterBinding() {
-        return BindingBuilder.bind(deadLetterQueue()).to(dlxExchange()).with("dlx_key");
+        return BindingBuilder
+                .bind(deadLetterQueue())
+                .to(dlxExchange())
+                .with(DLX_ROUTING_KEY);
     }
 
-    // --- 4. 基础设施增强 ---
+    // --- 5. 基础设施增强：统一序列化协议 ---
 
     /**
-     * 配置 Jackson 消息转换器
-     * 为什么必须配置：
-     * 1. 默认使用的是 JDK 序列化，会导致 RabbitMQ 管理后台看到的是二进制乱码。
-     * 2. 使用 JSON 转换器后，RabbitTemplate 会自动将对象转为 JSON 字符串，并设置 content_type 为 application/json。
-     * 3. 配合 EventPublisher，解决了手动调用 JSON.toJSONString 的重复代码问题。
+     * 定义 JSON 消息转换器
+     * 使用 Jackson 替代 JDK 默认序列化，提升传输效率并解决跨服务传输的 Serializable 问题。
      */
     @Bean
     public MessageConverter jsonMessageConverter() {

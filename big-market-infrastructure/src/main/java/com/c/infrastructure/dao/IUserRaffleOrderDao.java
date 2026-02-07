@@ -5,34 +5,40 @@ import org.apache.ibatis.annotations.Mapper;
 
 /**
  * 用户抽奖订单数据访问接口
- * 1. 记录持久化：负责将用户参与活动后生成的抽奖单据存入物理表。
- * 2. 幂等支撑：提供基于用户和活动维度的订单状态检索，防止额度重复扣减。
+ * 职责：
+ * 1. 凭证记录：持久化用户参与活动的合法凭证（订单）。
+ * 2. 状态机流转：管理订单从 'CREATE' 到 'USED' 的原子转换。
  *
  * @author cyh
- * @date 2026/02/01
+ * @date 2026/02/05
  */
 @Mapper
 public interface IUserRaffleOrderDao {
 
     /**
-     * 查询用户是否存在【已创建但未使用】的抽奖订单
-     * 用于参与活动链路中的幂等性校验。若用户此前已成功扣减额度并生成订单，
-     * 但因网络波动未实际进入抽奖，此方法将返回该订单，实现流程的可重入性。
+     * 查询待使用订单
+     * 场景：用于参与活动链路的幂等重入。若用户已扣额度但未抽奖，直接返回该订单。
      *
-     * @param userRaffleOrderReq 包含 userId, activityId 的查询请求对象
-     * @return 匹配到的订单记录（通常包含 orderId, strategyId 等关键信息）
+     * @param userRaffleOrderReq 包含 userId, activityId
+     * @return 待使用的订单快照
      */
     UserRaffleOrder queryNoUsedRaffleOrder(UserRaffleOrder userRaffleOrderReq);
 
     /**
-     * 插入新的用户抽奖订单
-     * 1. 事务约束：该方法通常在 `saveCreatePartakeOrderAggregate` 事务块中执行，
-     * 与账户额度的扣减保持强一致性。
-     * 2. 唯一索引：数据库层应对 orderId 或业务组合键设置唯一约束，防止并发重复写入。
+     * 插入用户抽奖订单
+     * 场景：在 saveCreatePartakeOrderAggregate 事务中执行。
      *
-     * @param userRaffleOrder 抽奖订单持久化对象
+     * @param userRaffleOrder 订单对象
      */
     void insert(UserRaffleOrder userRaffleOrder);
 
+    /**
+     * 原子更新订单状态为【已使用】
+     * 逻辑：update ... set state = 'USED' where userId = ? and orderId = ? and state = 'CREATE'
+     * 场景：用户完成抽奖动作后，异步或同步更新订单状态。
+     *
+     * @return 1-更新成功；0-幂等拦截（订单已消耗或不存在）
+     */
     int updateUserRaffleOrderStateUsed(UserRaffleOrder userRaffleOrder);
+
 }

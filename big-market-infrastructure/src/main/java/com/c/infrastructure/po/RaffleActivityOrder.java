@@ -16,6 +16,9 @@ import java.util.Date;
  * @date 2026/01/25
  */
 @Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
 public class RaffleActivityOrder {
 
     /** 数据库自增主键ID */
@@ -51,7 +54,7 @@ public class RaffleActivityOrder {
     /** 月次数限制：**下单时的规则快照**，留存参与时的月次数限制，不受后续模板修改影响 */
     private Integer monthCount;
 
-    /** 订单状态：not_used(未使用)、used(已使用)、expire(已过期)，标识抽奖机会的使用状态 */
+    /** 订单状态：not_used(未使用)、USED(已使用)、expire(已过期)，标识抽奖机会的使用状态 */
     private String state;
 
     /** 业务幂等ID：由外部透传（如支付单号/积分扣减单号），防止同一业务操作重复发放抽奖机会 */

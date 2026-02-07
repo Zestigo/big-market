@@ -3,7 +3,7 @@ package com.c.domain.activity.service.quota;
 import com.c.domain.activity.model.entity.ActivityCountEntity;
 import com.c.domain.activity.model.entity.ActivityEntity;
 import com.c.domain.activity.model.entity.ActivitySkuEntity;
-import com.c.domain.activity.repositor.IActivityRepository;
+import com.c.domain.activity.repository.IActivityRepository;
 import com.c.domain.activity.service.quota.rule.factory.DefaultActivityChainFactory;
 
 /**

@@ -8,44 +8,52 @@ import lombok.NoArgsConstructor;
 import java.util.Date;
 
 /**
- * @author cyh
- * @description 基础事件抽象类
- * 规范了所有领域事件的共有属性和行为。通过泛型 T 适配不同的业务数据负载。
- * @date 2026/01/28
+ * 基础事件抽象父类
+ * * 职责：
+ * 1. 契约定义：规范了所有领域事件必须具备的路由属性（Exchange, RoutingKey）。
+ * 2. 结构标准化：强制要求通过泛型 T 适配业务数据，并统一封装为标准消息格式。
+ * 3. 链路追踪：通过 EventMessage 支撑全局唯一 ID 和时间戳，便于消息回溯。
+ *
+ * @param <T> 领域事件携带的业务负载类型
  */
 @Data
 public abstract class BaseEvent<T> {
 
     /**
-     * 构造事件消息体
-     *
-     * @param data 具体的业务数据（负载）
-     * @return 封装好的标准事件消息对象
+     * 构建标准事件消息包裹对象
+     * * @param data 业务实体负载（如 Sku, Order 等）
+     * @return 包含元数据的标准消息对象
      */
     public abstract EventMessage<T> buildEventMessage(T data);
 
     /**
-     * 获取该事件对应的消息队列主题（Topic/Exchange）
+     * 获取该事件绑定的交换机名称 (Exchange)
+     * 对应 RabbitMQ 中的路由入口。
      */
-    public abstract String topic();
+    public abstract String exchange();
 
     /**
-     * @description 标准事件消息包裹对象
-     * 无论什么业务事件，在传输时都会统一封装成这个结构，便于消费者进行通用的幂等处理和日志追踪。
+     * 获取该事件绑定的路由键 (Routing Key)
+     * 决定消息在交换机内的分发策略。
+     */
+    public abstract String routingKey();
+
+    /**
+     * 标准事件消息载体
+     * * 作用：统一消息协议，承载幂等 ID 与时间戳，用于消费者去重与日志追踪。
      */
     @Data
     @Builder
     @AllArgsConstructor
     @NoArgsConstructor
     public static class EventMessage<T> {
-        /** 消息唯一标识（通常使用 UUID 或分布式 ID，用于消费者幂等校验） */
+        /** 消息唯一标识：建议使用 UUID 或雪花算法，用于消费端执行强幂等校验 */
         private String id;
 
-        /** 消息发生的时间戳（用于排查业务发生的先后顺序） */
+        /** 事件发生时间：用于监控消息积压及链路时序审计 */
         private Date timestamp;
 
-        /** 业务数据负载（具体的 SKU、订单 ID 或其他实体对象） */
+        /** 业务负载数据：具体的领域模型实体 */
         private T data;
     }
-
 }

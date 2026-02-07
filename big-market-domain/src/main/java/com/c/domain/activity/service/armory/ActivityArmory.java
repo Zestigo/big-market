@@ -1,7 +1,7 @@
 package com.c.domain.activity.service.armory;
 
 import com.c.domain.activity.model.entity.ActivitySkuEntity;
-import com.c.domain.activity.repositor.IActivityRepository;
+import com.c.domain.activity.repository.IActivityRepository;
 import com.c.types.common.Constants;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

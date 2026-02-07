@@ -1,4 +1,4 @@
-package com.c.domain.activity.repositor;
+package com.c.domain.activity.repository;
 
 import com.c.domain.activity.model.aggregate.CreatePartakeOrderAggregate;
 import com.c.domain.activity.model.aggregate.CreateQuotaOrderAggregate;
@@ -194,4 +194,25 @@ public interface IActivityRepository {
      * @return 当日已参与次数
      */
     Integer queryRaffleActivityAccountDayPartakeCount(Long activityId, String userId);
+
+    /**
+     * 查询用户活动账户额度实体
+     * 获取用户在指定活动下的账户记录，包含总次数、日次数及月次数的配额详情。
+     *
+     * @param activityId 活动ID
+     * @param userId     用户唯一ID
+     * @return 活动账户额度实体
+     */
+    ActivityAccountEntity queryActivityAccountEntity(Long activityId, String userId);
+
+    /**
+     * 查询用户在特定活动下的已参与抽奖次数
+     * 逻辑：已参与次数 = 总配额 - 剩余配额
+     *
+     * @param activityId 活动ID
+     * @param userId     用户ID
+     * @return 已参与抽奖的总次数
+     */
+    Integer queryRaffleActivityAccountPartakeCount(Long activityId, String userId);
+
 }

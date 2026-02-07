@@ -2,7 +2,7 @@ package com.c.domain.activity.service.quota;
 
 import com.c.domain.activity.model.aggregate.CreateQuotaOrderAggregate;
 import com.c.domain.activity.model.entity.*;
-import com.c.domain.activity.repositor.IActivityRepository;
+import com.c.domain.activity.repository.IActivityRepository;
 import com.c.domain.activity.service.IRaffleActivityAccountQuotaService;
 import com.c.domain.activity.service.quota.rule.IActionChain;
 import com.c.domain.activity.service.quota.rule.factory.DefaultActivityChainFactory;
@@ -48,8 +48,7 @@ public abstract class AbstractRaffleActivityAccountQuota extends RaffleActivityA
         Long sku = skuRechargeEntity.getSku();
         String outBusinessNo = skuRechargeEntity.getOutBusinessNo();
         if (sku == null || StringUtils.isBlank(userId) || StringUtils.isBlank(outBusinessNo)) {
-            throw new AppException(ResponseCode.ILLEGAL_PARAMETER.getCode(),
-                    ResponseCode.ILLEGAL_PARAMETER.getInfo());
+            throw new AppException(ResponseCode.ILLEGAL_PARAMETER);
         }
 
         // 2. 数据查询：通过调用 Support 层方法获取当前活动参与所需的完整领域对象上下文

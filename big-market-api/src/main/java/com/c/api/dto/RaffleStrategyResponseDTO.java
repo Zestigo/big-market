@@ -19,9 +19,6 @@ import java.io.Serializable;
 @NoArgsConstructor
 public class RaffleStrategyResponseDTO implements Serializable {
 
-    /** 序列化版本标识符，用于保证分布式环境下对象序列化与反序列化的版本一致性 */
-    private static final long serialVersionUID = 1L;
-
     /** 奖品唯一标识 ID */
     private Integer awardId;
 

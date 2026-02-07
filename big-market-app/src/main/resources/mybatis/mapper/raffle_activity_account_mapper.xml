@@ -16,30 +16,30 @@
         <result column="update_time" property="updateTime"/>
     </resultMap>
 
-
     <insert id="insert" parameterType="com.c.infrastructure.po.RaffleActivityAccount">
-
-        insert into raffle_activity_account
-        (user_id, activity_id, total_count, total_count_surplus, day_count,
-         day_count_surplus, month_count, month_count_surplus, create_time, update_time)
-        values (#{userId}, #{activityId}, #{totalCount}, #{totalCountSurplus}, #{dayCount},
-                #{dayCountSurplus}, #{monthCount}, #{monthCountSurplus}, now(), now())
+        INSERT INTO raffle_activity_account (user_id, activity_id, total_count, total_count_surplus,
+                                             day_count, day_count_surplus, month_count, month_count_surplus,
+                                             create_time, update_time)
+        VALUES (#{userId}, #{activityId}, #{totalCount}, #{totalCountSurplus},
+                #{dayCount}, #{dayCountSurplus}, #{monthCount}, #{monthCountSurplus},
+                NOW(), NOW())
     </insert>
 
     <update id="updateAccountQuota" parameterType="com.c.infrastructure.po.RaffleActivityAccount">
-        update raffle_activity_account
-        set total_count         = total_count + #{totalCount},
+        UPDATE raffle_activity_account
+        SET total_count         = total_count + #{totalCount},
             total_count_surplus = total_count_surplus + #{totalCountSurplus},
-            day_count_surplus   = day_count_surplus + #{dayCountSurplus},
             day_count           = day_count + #{dayCount},
-            month_count_surplus = month_count_surplus + #{monthCountSurplus},
+            day_count_surplus   = day_count_surplus + #{dayCountSurplus},
             month_count         = month_count + #{monthCount},
-            update_time         = now()
-        where user_id = #{userId}
-          and activity_id = #{activityId}
+            month_count_surplus = month_count_surplus + #{monthCountSurplus},
+            update_time         = NOW()
+        WHERE user_id = #{userId}
+          AND activity_id = #{activityId}
     </update>
+
     <select id="queryActivityAccountByUserId" resultMap="dataMap" parameterType="com.c.infrastructure.po.RaffleActivityAccount">
-        select user_id,
+        SELECT user_id,
                activity_id,
                total_count,
                total_count_surplus,
@@ -47,38 +47,50 @@
                day_count_surplus,
                month_count,
                month_count_surplus
-        from raffle_activity_account
-        where user_id = #{userId}
-          and activity_id = #{activityId}
+        FROM raffle_activity_account
+        WHERE user_id = #{userId}
+          AND activity_id = #{activityId}
+    </select>
+
+    <select id="queryTotalUserRaffleCount" resultMap="dataMap" parameterType="com.c.infrastructure.po.RaffleActivityAccount">
+        SELECT user_id,
+               activity_id,
+               total_count,
+               total_count_surplus
+        FROM raffle_activity_account
+        WHERE user_id = #{userId}
+          AND activity_id = #{activityId}
     </select>
 
     <update id="updateActivityAccountSubtractionQuota" parameterType="com.c.infrastructure.po.RaffleActivityAccount">
-        update raffle_activity_account
-        set total_count_surplus = total_count_surplus - 1,
+        UPDATE raffle_activity_account
+        SET total_count_surplus = total_count_surplus - 1,
             day_count_surplus   = day_count_surplus - 1,
             month_count_surplus = month_count_surplus - 1,
-            update_time         = now()
-        where user_id = #{userId}
-          and activity_id = #{activityId}
-          and total_count_surplus > 0
-          and day_count_surplus > 0
-          and month_count_surplus > 0
+            update_time         = NOW()
+        WHERE user_id = #{userId}
+          AND activity_id = #{activityId}
+          AND total_count_surplus >= 1
+          AND day_count_surplus >= 1
+          AND month_count_surplus >= 1
     </update>
 
     <update id="updateActivityAccountMonthSurplusImageQuota" parameterType="com.c.infrastructure.po.RaffleActivityAccount">
-        update raffle_activity_account
-        set month_count_surplus = #{monthCountSurplus} - 1,
-            update_time         = now()
-        where user_id = #{userId}
-          and activity_id = #{activityId}
+        UPDATE raffle_activity_account
+        SET month_count_surplus = month_count_surplus - 1,
+            update_time         = NOW()
+        WHERE user_id = #{userId}
+          AND activity_id = #{activityId}
+          AND month_count_surplus >= 1
     </update>
 
     <update id="updateActivityAccountDaySurplusImageQuota" parameterType="com.c.infrastructure.po.RaffleActivityAccount">
-        update raffle_activity_account
-        set day_count_surplus = #{dayCountSurplus} - 1,
-            update_time       = now()
-        where user_id = #{userId}
-          and activity_id = #{activityId}
+        UPDATE raffle_activity_account
+        SET day_count_surplus = day_count_surplus - 1,
+            update_time       = NOW()
+        WHERE user_id = #{userId}
+          AND activity_id = #{activityId}
+          AND day_count_surplus >= 1
     </update>
 
 </mapper>

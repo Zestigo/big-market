@@ -1,26 +1,34 @@
 package com.c.domain.award.service;
 
+import com.c.domain.award.model.entity.DistributeAwardEntity;
 import com.c.domain.award.model.entity.UserAwardRecordEntity;
 
 /**
  * 奖品领域服务接口
- * 1. 业务契约定义：定义中奖记录持久化及后续发奖动作的触发标准。
- * 2. 状态一致性保障：通过实现类协调仓储层，确保业务处理结果（中奖）与消息补偿任务（发奖）的原子性同步。
- * 3. 核心链路入口：作为抽奖完成后，处理“奖品归属”逻辑的首要领域接口。
+ * 1. 负责中奖信息的持久化，并同步创建本地消息任务（Task）。
+ * 2. 路由并驱动不同类型的奖品发放动作。
  *
  * @author cyh
- * @date 2026/02/01
+ * @since 2026/02/01
  */
 public interface IAwardService {
 
     /**
-     * 保存用户中奖记录
-     * 1. 幂等校验：接收抽奖单据，并根据业务主键（如订单ID）确保不重复记录中奖信息。
-     * 2. 事务持久化：将中奖凭证写入库，并同步构建对应的【消息任务记录】，为异步发奖提供凭证。
-     * 3. 消息驱动：触发后续的发奖流程（如发送积分、发放优惠券或实物奖品记录生成）。
+     * 保存用户中奖记录及消息任务
+     * 1. 根据中奖单据，将流水记录与异步补偿任务（Task）在事务内同步落地。
+     * 2. 记录生成后，触发初始的消息投递流程。
      *
-     * @param userAwardRecordEntity 中奖记录实体，包含：用户ID、活动信息、奖品信息及关联订单号
+     * @param userAwardRecordEntity 中奖记录实体
      */
     void saveUserAwardRecord(UserAwardRecordEntity userAwardRecordEntity);
+
+    /**
+     * 执行奖品发放逻辑
+     * 1. 识别奖品类型（积分、实物、优惠券等）并执行对应的发放动作。
+     * 2. 发放完成后核销记录状态，确保业务链路闭环。
+     *
+     * @param distributeAwardEntity 奖品分发实体
+     */
+    void distributeAward(DistributeAwardEntity distributeAwardEntity);
 
 }

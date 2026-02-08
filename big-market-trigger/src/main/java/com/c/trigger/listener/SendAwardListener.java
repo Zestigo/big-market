@@ -3,6 +3,7 @@ package com.c.trigger.listener;
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.TypeReference;
 import com.c.domain.award.event.SendAwardMessageEvent;
+import com.c.domain.award.model.entity.DistributeAwardEntity;
 import com.c.domain.award.service.IAwardService;
 import com.c.types.event.BaseEvent;
 import lombok.extern.slf4j.Slf4j;
@@ -14,10 +15,8 @@ import org.springframework.stereotype.Component;
 import javax.annotation.Resource;
 
 /**
- * 消息监听器：中奖结果分发与奖品发放
- * 1. 异步解耦：响应抽奖引擎发出的中奖指令，确保抽奖核心流程不被复杂的发奖逻辑阻塞。
- * 2. 消息可靠消费：通过 MQ 保证“发奖”动作最终一定执行，实现中奖结果的最终一致性。
- * 3. 业务路由：解析中奖信息，驱动奖品领域服务执行不同类型（积分、实物、优惠券）的发放动作。
+ * 抽奖发奖消息监听器
+ * 职责：响应抽奖成功事件，异步触发奖品发放流程，实现抽奖与发奖的解耦。
  *
  * @author cyh
  * @date 2026/02/05
@@ -32,42 +31,45 @@ public class SendAwardListener {
     @Resource
     private IAwardService awardService;
 
-    /** 静态化类型引用：解析中奖事件消息体 */
-    private static final TypeReference<BaseEvent.EventMessage<SendAwardMessageEvent.SendAwardMessage>> MESSAGE_TYPE =
-            new TypeReference<BaseEvent.EventMessage<SendAwardMessageEvent.SendAwardMessage>>() {
-            };
-
     /**
-     * 监听并消费发奖指令消息
-     * 1. 消息解析：将 JSON 字符串还原为奖品分发所需的元数据实体。
-     * 2. 领域驱动：调用 awardService 执行奖品配送（如：插入发奖记录、调用第三方接口）。
-     * 3. 结果追踪：记录发奖轨迹，为后续用户查看“我的奖品”提供数据支撑。
+     * 监听并发放奖品
+     * 1. 转换：解析消息体封装为 DistributeAwardEntity 领域对象。
+     * 2. 执行：调用 awardService 进行奖品发放（涉及账户更新、物流开单等）。
+     * 3. 容错：若发放失败，抛出异常触发 MQ 重试机制，确保奖品最终送达。
      *
      * @param message 原始 JSON 消息字符串
      */
     @RabbitListener(queues = "${spring.rabbitmq.topic.send_award.queue}")
     public void onMessage(String message) {
         if (StringUtils.isBlank(message)) {
-            log.warn("【警告】接收到空值发奖指令，放弃处理 | Exchange: {}", exchange);
+            log.warn("接收到空值发奖消息，跳过处理 | Exchange: {}", exchange);
             return;
         }
 
         try {
-            // [步骤 1] 消息结构解析
+            log.info("监听用户奖品发送消息 exchange: {} message: {}", exchange, message);
+
+            // 1. 消息解析
             BaseEvent.EventMessage<SendAwardMessageEvent.SendAwardMessage> eventMessage = JSON.parseObject(message,
-                    MESSAGE_TYPE);
+                    new TypeReference<BaseEvent.EventMessage<SendAwardMessageEvent.SendAwardMessage>>() {
+                    }.getType());
             SendAwardMessageEvent.SendAwardMessage sendAwardMessage = eventMessage.getData();
 
-            if (null == sendAwardMessage) {
-                log.error("【错误】发奖消息载体缺失 | Message: {}", message);
-                return;
-            }
+            // 2. 构造分发实体
+            DistributeAwardEntity distributeAwardEntity = DistributeAwardEntity
+                    .builder()
+                    .userId(sendAwardMessage.getUserId())
+                    .orderId(sendAwardMessage.getOrderId())
+                    .awardId(sendAwardMessage.getAwardId())
+                    .awardConfig(sendAwardMessage.getAwardConfig())
+                    .build();
 
-            // TODO
+            // 3. 执行发放逻辑
+            awardService.distributeAward(distributeAwardEntity);
 
         } catch (Exception e) {
-            // [步骤 4] 捕获异常触发重试：发奖失败必须重试，确保奖品不漏发
-            log.error("【系统异常】执行奖品发放失败 | 消息内容: {}", message, e);
+            // 捕获异常需重新抛出，以便触发 RabbitMQ 的重试或进入死信队列
+            log.error("执行奖品发放失败，触发重试 | 消息内容: {}", message, e);
             throw e;
         }
     }

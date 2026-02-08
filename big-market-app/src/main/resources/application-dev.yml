@@ -58,7 +58,7 @@ spring:
       # 给业务代码读的“变量”，我们把它设为交换机名
       activity_sku_stock:
         exchange: activity_sku_stock_exchange
-        routing-key: activity_sku_stock_key
+        routing-key: activity_sku_stock_routing_key
         queue: activity_sku_stock_queue
       send_award:
         exchange: send_award_exchange
@@ -152,6 +152,18 @@ spring:
                 sharding-column: user_id
                 sharding-algorithm-name: sys_user_tbl_alg
 
+          # 积分流水表 (Logic Table: user_credit_order)
+          user_credit_order:
+            actual-data-nodes: ds_${0..1}.user_credit_order_00${0..3}
+            database-strategy:
+              standard:
+                sharding-column: user_id
+                sharding-algorithm-name: sys_user_db_alg
+            table-strategy:
+              standard:
+                sharding-column: user_id
+                sharding-algorithm-name: sys_user_tbl_alg
+
           # ================== 第二部分：仅分库 + 不分表 (每个库下只有 1 张物理表) ==================
 
           # 抽奖账户总表
@@ -178,7 +190,15 @@ spring:
                 sharding-column: user_id
                 sharding-algorithm-name: sys_user_db_alg
 
-          # 异步任务表 (用于补偿逻辑)
+          # 积分账户表：承载用户的货币/积分资产
+          user_credit_account:
+            actual-data-nodes: ds_${0..1}.user_credit_account
+            database-strategy:
+              standard:
+                sharding-column: user_id
+                sharding-algorithm-name: sys_user_db_alg
+
+          # 异步任务表：用于事务最终一致性补偿（如发送 MQ 消息失败后的重试）
           task:
             actual-data-nodes: ds_${0..1}.task
             database-strategy:

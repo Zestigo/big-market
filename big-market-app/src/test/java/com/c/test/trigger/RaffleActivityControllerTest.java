@@ -16,10 +16,14 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.junit4.SpringRunner;
 
 import javax.annotation.Resource;
+import java.util.concurrent.CountDownLatch;
 
 /**
- * 抽奖活动服务测试
- * 重点：验证活动装配、抽奖全链路逻辑、异常拦截处理
+ * 抽奖活动 Trigger 层集成测试
+ * 覆盖：活动装配、全链路抽奖、返利资格查询、账户额度查询
+ *
+ * @author cyh
+ * @date 2026/02/07
  */
 @Slf4j
 @RunWith(SpringRunner.class)
@@ -30,105 +34,111 @@ public class RaffleActivityControllerTest {
     private IRaffleActivityService raffleActivityService;
 
     /**
-     * 活动预热/装配测试
-     * 对应活动ID：100301 -> 内部应正确映射并装配策略ID：100003
+     * 活动策略预热装配测试
      */
     @Test
     public void test_armory() {
         Long activityId = 100301L;
         Response<Boolean> response = raffleActivityService.armory(activityId);
 
-        log.info("活动预热装配测试完成 activityId:{} 结果:{}", activityId, JSON.toJSONString(response));
+        log.info("活动装配测试 activityId:{} 结果:{}", activityId, JSON.toJSONString(response));
 
-        // 断言：装配必须成功
         Assert.assertEquals(ResponseCode.SUCCESS.getCode(), response.getCode());
-        Assert.assertTrue(response.getData());
+        Assert.assertTrue("活动装配应返回 true", response.getData());
     }
 
     /**
-     * 完整抽奖链路测试
-     * 场景：用户 cyh 参与活动 100301
-     * 预期：
-     * 1. 自动扣减额度并创建订单
-     * 2. 内部根据活动ID找到策略ID (100003) 进行抽奖
-     * 3. 返回中奖信息或失败原因
+     * 完整抽奖流程测试（包含扣减额度、执行策略、生成结果）
      */
     @Test
     public void test_draw() {
-        // 1. 构造请求
         ActivityDrawRequestDTO request = new ActivityDrawRequestDTO();
         request.setActivityId(100301L);
         request.setUserId("cyh");
 
-        // 2. 发起调用
-        try {
-            Response<ActivityDrawResponseDTO> response = raffleActivityService.draw(request);
+        Response<ActivityDrawResponseDTO> response = raffleActivityService.draw(request);
+        log.info("抽奖测试完成 请求:{} 响应:{}", JSON.toJSONString(request), JSON.toJSONString(response));
 
-            // 3. 结构化日志输出（拒绝用 + 拼接，采用占位符更清晰）
-            log.info("【抽奖测试】请求参数: {}", JSON.toJSONString(request));
-            log.info("【抽奖测试】响应结果: {}", JSON.toJSONString(response));
+        Assert.assertNotNull("响应对象不应为空", response);
 
-            // 4. 关键业务断言
-            Assert.assertNotNull("响应结果不应为空", response);
-
-            if (ResponseCode.SUCCESS
-                    .getCode()
-                    .equals(response.getCode())) {
-                ActivityDrawResponseDTO data = response.getData();
-                log.info("🎉 抽奖成功！奖品ID: {}, 奖品名称: {}", data.getAwardId(), data.getAwardTitle());
-            } else {
-                log.warn("⚠️ 抽奖业务拦截：{} ({})", response.getInfo(), response.getCode());
-            }
-
-        } catch (Exception e) {
-            log.error("❌ 抽奖执行发生系统级异常", e);
-            Assert.fail("不应抛出未捕获的异常（如 NPE）");
+        if (ResponseCode.SUCCESS
+                .getCode()
+                .equals(response.getCode())) {
+            ActivityDrawResponseDTO data = response.getData();
+            log.info("🎉 抽奖成功：奖品ID={}, 标题={}", data.getAwardId(), data.getAwardTitle());
+            Assert.assertNotNull("中奖后奖品ID不能为空", data.getAwardId());
+        } else {
+            log.warn("抽奖被拦截：{} - {}", response.getCode(), response.getInfo());
         }
     }
 
+    /**
+     * 黑名单用户抽奖测试
+     * 场景：验证当用户 user001 命中黑名单规则时，责任链是否正确拦截并返回兜底奖品。
+     */
     @Test
-    public void test_isCalendarSignRebate() {
-        // 1. 准备测试数据
-        String userId = "cyh";
+    public void test_blacklist_draw() throws InterruptedException {
+        ActivityDrawRequestDTO request = new ActivityDrawRequestDTO();
+        request.setActivityId(100301L);
+        request.setUserId("user001");
 
-        // 2. 执行查询：判断用户是否满足日历签到返利资格
-        Response<Boolean> response = raffleActivityService.isCalendarSignRebate(userId);
+        Response<ActivityDrawResponseDTO> response = raffleActivityService.draw(request);
 
-        // 3. 打印结果：记录日志以便排查问题
-        log.info("测试结果 userId:{} response:{}", userId, JSON.toJSONString(response));
+        log.info("黑名单抽奖测试 请求:{} 响应:{}", JSON.toJSONString(request), JSON.toJSONString(response));
 
-        // 4. 严谨断言：验证返回码为成功，且业务数据不为空
-        Assert.assertEquals(ResponseCode.SUCCESS.getCode(), response.getCode());
+        new CountDownLatch(1).await();
+
+        // 断言：黑名单拦截通常应返回成功码，但奖品 ID 应为策略中配置的黑名单兜底奖品
         Assert.assertNotNull(response.getData());
     }
 
+    /**
+     * 日历签到返利测试
+     * 场景：用户完成签到动作后，触发返利流程，通常涉及账户额度增加。
+     */
+    @Test
+    public void test_calendarSignRebate() {
+        String userId = "user001";
+        Response<Boolean> response = raffleActivityService.calendarSignRebate(userId);
+
+        log.info("日历签到返利测试 userId:{} 结果:{}", userId, JSON.toJSONString(response));
+
+        // 断言：验证接口调用成功且业务逻辑处理完成
+        Assert.assertTrue("签到返利应执行成功", response.getData());
+    }
+
+    /**
+     * 日历签到返利资格校验测试
+     */
+    @Test
+    public void test_isCalendarSignRebate() {
+        String userId = "cyh";
+        Response<Boolean> response = raffleActivityService.isCalendarSignRebate(userId);
+
+        log.info("签到返利资格查询 userId:{} 结果:{}", userId, JSON.toJSONString(response));
+
+        Assert.assertEquals(ResponseCode.SUCCESS.getCode(), response.getCode());
+        Assert.assertNotNull("业务结果不应为空", response.getData());
+    }
+
+    /**
+     * 查询用户活动账户额度测试（总/日/月额度）
+     */
     @Test
     public void test_queryUserActivityAccount() {
-        // 1. 构建请求参数：查询特定活动下的用户账户额度（总额度、日额度、月额度）
         UserActivityAccountRequestDTO request = new UserActivityAccountRequestDTO();
         request.setActivityId(100301L);
         request.setUserId("cyh");
 
-        // 2. 调用接口：获取用户活动账户镜像
         Response<UserActivityAccountResponseDTO> response = raffleActivityService.queryUserActivityAccount(request);
+        log.info("账户额度查询测试 结果:{}", JSON.toJSONString(response));
 
-        // 3. 记录请求与响应：在 CI/CD 环境下提供完整的审计路径
-        log.info("请求参数：{}", JSON.toJSONString(request));
-        log.info("测试结果：{}", JSON.toJSONString(response));
+        Assert.assertEquals(ResponseCode.SUCCESS.getCode(), response.getCode());
+        if (null != response.getData()) {
+            UserActivityAccountResponseDTO data = response.getData();
+            log.info("账户镜像：总额度={}, 日剩余={}, 月剩余={}", data.getTotalCount(), data.getDayCountSurplus(),
+                    data.getMonthCountSurplus());
+        }
     }
 
-    @Test
-    public void test_queryUserActivityAcco1unt() {
-        // 1. 构建请求参数：查询特定活动下的用户账户额度（总额度、日额度、月额度）
-        UserActivityAccountRequestDTO request = new UserActivityAccountRequestDTO();
-        request.setActivityId(100301L);
-        request.setUserId("cyh");
-
-        // 2. 调用接口：获取用户活动账户镜像
-        Response<UserActivityAccountResponseDTO> response = raffleActivityService.queryUserActivityAccount(request);
-
-        // 3. 记录请求与响应：在 CI/CD 环境下提供完整的审计路径
-        log.info("请求参数：{}", JSON.toJSONString(request));
-        log.info("测试结果：{}", JSON.toJSONString(response));
-    }
 }

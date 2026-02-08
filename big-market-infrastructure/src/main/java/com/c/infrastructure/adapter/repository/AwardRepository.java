@@ -1,16 +1,18 @@
 package com.c.infrastructure.adapter.repository;
 
 import com.alibaba.fastjson.JSON;
+import com.c.domain.award.model.aggregate.GiveOutPrizesAggregate;
 import com.c.domain.award.model.aggregate.UserAwardRecordAggregate;
 import com.c.domain.award.model.entity.TaskEntity;
 import com.c.domain.award.model.entity.UserAwardRecordEntity;
+import com.c.domain.award.model.entity.UserCreditAwardEntity;
+import com.c.domain.award.model.vo.AccountStatusVO;
 import com.c.domain.award.repository.IAwardRepository;
-import com.c.infrastructure.dao.ITaskDao;
-import com.c.infrastructure.dao.IUserAwardRecordDao;
-import com.c.infrastructure.dao.IUserRaffleOrderDao;
+import com.c.infrastructure.dao.*;
 import com.c.infrastructure.event.EventPublisher;
 import com.c.infrastructure.po.Task;
 import com.c.infrastructure.po.UserAwardRecord;
+import com.c.infrastructure.po.UserCreditAccount;
 import com.c.infrastructure.po.UserRaffleOrder;
 import com.c.types.enums.ResponseCode;
 import com.c.types.exception.AppException;
@@ -22,40 +24,43 @@ import org.springframework.transaction.support.TransactionTemplate;
 import javax.annotation.Resource;
 
 /**
- * 仓储服务实现：中奖记录与任务落地
+ * 仓储服务实现：中奖记录管理与发奖任务调度
  * <p>
  * 职责：
- * 1. 本地事务控制：确保中奖凭证记录、任务消息记录、抽奖单状态更新在同一个数据库事务内完成。
- * 2. 最终一致性保障：利用本地消息表模式，解决业务操作与 MQ 投递的原子性问题。
- * 3. 实时发送与补偿机制：事务提交后尝试即时外发，若失败则标记状态由 Job 进行后续补偿。
+ * 1. 负责中奖流水、发奖任务、用户积分账户等核心数据的持久化。
+ * 2. 采用 [本地消息表] 模式，利用数据库本地事务保证业务逻辑与消息通知的最终一致性。
  *
  * @author cyh
- * @date 2026/02/01
+ * @since 2026/02/01
  */
 @Slf4j
 @Component
 public class AwardRepository implements IAwardRepository {
 
     @Resource
+    private IAwardDao awardDao;
+    @Resource
     private ITaskDao taskDao;
     @Resource
     private IUserAwardRecordDao userAwardRecordDao;
     @Resource
+    private IUserRaffleOrderDao userRaffleOrderDao;
+    @Resource
+    private IUserCreditAccountDao userCreditAccountDao;
+    @Resource
     private TransactionTemplate transactionTemplate;
     @Resource
     private EventPublisher eventPublisher;
-    @Resource
-    private IUserRaffleOrderDao userRaffleOrderDao;
 
     /**
-     * 执行保存用户中奖记录及异步任务消息
+     * 保存用户中奖记录及本地消息任务
      * <p>
-     * 过程：
-     * 1. 构建 PO 对象：将领域层聚合根拆解为数据库对应的持久化对象。
-     * 2. 执行事务操作：原子化写入中奖记录表、任务补偿表，并更新抽奖单状态为已使用。
-     * 3. 事务后置发送：事务成功提交后，尝试立即将消息投递至 MQ，并更新任务状态。
+     * 处理逻辑：
+     * 1. 映射领域实体至 PO 模型。
+     * 2. 在本地事务中执行：插入中奖记录、插入任务表、占用抽奖订单。
+     * 3. 事务提交后，即时尝试发送 MQ 消息。
      *
-     * @param userAwardRecordAggregate 中奖记录聚合根
+     * @param userAwardRecordAggregate 中奖记录聚合根，包含中奖实体及待发任务实体
      */
     @Override
     public void saveUserAwardRecord(UserAwardRecordAggregate userAwardRecordAggregate) {
@@ -66,16 +71,15 @@ public class AwardRepository implements IAwardRepository {
         String userId = userAwardRecordEntity.getUserId();
         String orderId = userAwardRecordEntity.getOrderId();
         Long activityId = userAwardRecordEntity.getActivityId();
-        Integer awardId = userAwardRecordEntity.getAwardId();
 
-        // 1. PO 对象转换 - 中奖记录实体映射
+        // 1. 数据映射 (Entity -> PO)
         UserAwardRecord userAwardRecord = UserAwardRecord
                 .builder()
                 .userId(userId)
                 .activityId(activityId)
                 .strategyId(userAwardRecordEntity.getStrategyId())
                 .orderId(orderId)
-                .awardId(awardId)
+                .awardId(userAwardRecordEntity.getAwardId())
                 .awardTitle(userAwardRecordEntity.getAwardTitle())
                 .awardTime(userAwardRecordEntity.getAwardTime())
                 .awardState(userAwardRecordEntity
@@ -83,7 +87,6 @@ public class AwardRepository implements IAwardRepository {
                         .getCode())
                 .build();
 
-        // 2. PO 对象转换 - 任务补偿实体映射
         Task task = Task
                 .builder()
                 .userId(userId)
@@ -96,33 +99,32 @@ public class AwardRepository implements IAwardRepository {
                         .getCode())
                 .build();
 
-        // 3. PO 对象转换 - 用户抽奖单更新实体
         UserRaffleOrder userRaffleOrder = UserRaffleOrder
                 .builder()
                 .userId(userId)
                 .orderId(orderId)
                 .build();
 
-        // 4. 执行数据库本地事务
+        // 2. 执行本地事务
         transactionTemplate.execute(status -> {
             try {
-                // 写入中奖凭证
+                // [步骤1] 写入中奖记录流水
                 userAwardRecordDao.insert(userAwardRecord);
 
-                // 写入本地消息任务
+                // [步骤2] 写入本地消息表（为后续 MQ 发送失败提供补偿依据）
                 taskDao.insert(task);
 
-                // 更新中奖单状态为已使用（防重抽的关键动作）
+                // [步骤3] 更新抽奖单状态为“已使用”，利用行锁或唯一索引实现幂等防止重复中奖
                 int count = userRaffleOrderDao.updateUserRaffleOrderStateUsed(userRaffleOrder);
                 if (count != 1) {
                     status.setRollbackOnly();
-                    log.error("保存中奖记录失败，抽奖单状态更新异常 userId: {} orderId: {}", userId, orderId);
+                    log.error("保存中奖记录失败，抽奖单已被占用或不存在 userId: {} orderId: {}", userId, orderId);
                     throw new AppException(ResponseCode.ACTIVITY_ORDER_ERROR);
                 }
                 return 1;
             } catch (DuplicateKeyException e) {
                 status.setRollbackOnly();
-                log.error("保存中奖记录失败，唯一索引冲突 userId: {} orderId: {}", userId, orderId, e);
+                log.error("保存中奖记录失败，唯一索引冲突（重复提交拦截） userId: {} orderId: {}", userId, orderId, e);
                 throw new AppException(ResponseCode.INDEX_DUP, e);
             } catch (Exception e) {
                 status.setRollbackOnly();
@@ -131,18 +133,96 @@ public class AwardRepository implements IAwardRepository {
             }
         });
 
-        // 5. 事务外异步投递 MQ 消息
+        // 3. 事务外执行 MQ 实时推送（尽力而为，若失败由 Job 扫描 Task 表重发）
         try {
-            // 使用标准的 Exchange 和 RoutingKey 进行发布
             eventPublisher.publish(task.getExchange(), task.getRoutingKey(), task.getMessage());
-
-            // 发送成功后更新任务状态为已完成
             taskDao.updateTaskSendMessageCompleted(task);
         } catch (Exception e) {
-            // 失败时记录日志并标记为失败，依赖后续 Job 扫描 Task 表执行重发补偿
-            log.error("中奖记录异步投递失败（待 Job 补偿） userId: {} messageId: {} exchange: {}", userId, task.getMessageId(),
-                    task.getExchange(), e);
+            log.error("中奖记录异步投递失败（待 Job 补偿） userId: {} messageId: {}", userId, task.getMessageId(), e);
             taskDao.updateTaskSendMessageFail(task);
         }
+    }
+
+    /**
+     * 根据奖品 ID 查询该奖品的发奖策略配置
+     *
+     * @param awardId 奖品 ID
+     * @return 配置字符串（通常为 JSON），用于决定发奖的具体动作（如积分额度、实物邮寄属性等）
+     */
+    @Override
+    public String queryAwardConfig(Integer awardId) {
+        return awardDao.queryAwardConfigByAwardId(awardId);
+    }
+
+    /**
+     * 执行奖品发放落地逻辑（主要处理积分、余额等账户变动类奖品）
+     * <p>
+     * 特性：
+     * 1. 自动开户：若用户积分账户不存在则自动初始化。
+     * 2. 状态机控流：通过中奖记录的状态更新（待发 -> 已发）保证发奖动作的幂等性。
+     *
+     * @param giveOutPrizesAggregate 发奖聚合根，包含用户 ID、积分信息及记录状态
+     */
+    @Override
+    public void saveGiveOutPrizesAggregate(GiveOutPrizesAggregate giveOutPrizesAggregate) {
+        String userId = giveOutPrizesAggregate.getUserId();
+        UserCreditAwardEntity userCreditAwardEntity = giveOutPrizesAggregate.getUserCreditAwardEntity();
+        UserAwardRecordEntity userAwardRecordEntity = giveOutPrizesAggregate.getUserAwardRecordEntity();
+
+        UserAwardRecord userAwardRecord = UserAwardRecord
+                .builder()
+                .userId(userId)
+                .orderId(userAwardRecordEntity.getOrderId())
+                .awardState(userAwardRecordEntity
+                        .getAwardState()
+                        .getCode())
+                .build();
+
+        UserCreditAccount userCreditAccount = UserCreditAccount
+                .builder()
+                .userId(userId)
+                .totalAmount(userCreditAwardEntity.getCreditAmount())
+                .availableAmount(userCreditAwardEntity.getCreditAmount())
+                .accountStatus(AccountStatusVO.OPEN.getCode())
+                .build();
+
+        transactionTemplate.execute(status -> {
+            try {
+                // [步骤1] 账户余额操作：尝试累加积分
+                int updateAccountCount = userCreditAccountDao.updateAddAmount(userCreditAccount);
+                // 若受影响行数为 0，说明该用户是首次获得积分，执行初始化开户
+                if (0 == updateAccountCount) {
+                    userCreditAccountDao.insert(userCreditAccount);
+                }
+
+                // [步骤2] 更新中奖记录为完成态。此步骤失败代表该订单已处理过，触发回滚。
+                int updateAwardCount = userAwardRecordDao.updateAwardRecordCompletedState(userAwardRecord);
+                if (0 == updateAwardCount) {
+                    log.warn("更新发奖记录拦截：记录已完成或状态不匹配 userId:{} orderId:{}", userId, userAwardRecord.getOrderId());
+                    status.setRollbackOnly();
+                    return 0;
+                }
+                return 1;
+            } catch (DuplicateKeyException e) {
+                status.setRollbackOnly();
+                log.error("更新发奖记录异常，唯一索引冲突 userId:{} orderId:{}", userId, userAwardRecord.getOrderId(), e);
+                throw new AppException(ResponseCode.INDEX_DUP, e);
+            } catch (Exception e) {
+                status.setRollbackOnly();
+                log.error("发奖事务执行失败 userId:{}", userId, e);
+                throw new AppException(ResponseCode.UN_ERROR, e);
+            }
+        });
+    }
+
+    /**
+     * 根据奖品 ID 查询其唯一的业务标识 Key
+     *
+     * @param awardId 奖品 ID
+     * @return 奖品业务 Key（如："coupon_v1", "credit_score"），用于逻辑判断或调用三方接口
+     */
+    @Override
+    public String queryAwardKey(Integer awardId) {
+        return awardDao.queryAwardKeyByAwardId(awardId);
     }
 }

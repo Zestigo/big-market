@@ -9,9 +9,11 @@ import java.math.BigDecimal;
 import java.util.Date;
 
 /**
- * 用户积分流水订单持久化对象 (PO)
- * 职责：映射数据库表 `user_credit_order_00x`。
- * 记录每一笔积分变动的明细，作为资产对账和幂等校验的依据。
+ * 用户积分流水持久化对象
+ * 对应表：user_credit_order_00x (分片表)
+ *
+ * @author cyh
+ * @date 2026/02/08
  */
 @Data
 @Builder
@@ -19,23 +21,26 @@ import java.util.Date;
 @NoArgsConstructor
 public class UserCreditOrder {
 
-    /** 自增主键 ID */
+    /** 自增主键 */
     private Long id;
 
-    /** 用户 ID */
+    /** 用户 ID (分片键) */
     private String userId;
 
-    /** 业务单号（分布式唯一 ID，核心幂等键） */
+    /** 内部交易单号 (唯一索引: uq_order_id) */
     private String orderId;
 
-    /** 交易名称（例如：抽奖返利、签到积分） */
+    /** 交易名称 (示例: 抽奖返利、签到积分) */
     private String tradeName;
 
-    /** 交易类型：forward-正向(加积分), reverse-反向(扣积分) */
+    /** 交易类型：forward-加积分, reverse-扣积分 */
     private String tradeType;
 
-    /** 交易金额 (decimal(10,2)) */
-    private BigDecimal amount;
+    /** 交易金额 */
+    private BigDecimal tradeAmount;
+
+    /** 外部业务单号 (唯一索引: uq_out_business_no，用于防重校验) */
+    private String outBusinessNo;
 
     /** 创建时间 */
     private Date createTime;

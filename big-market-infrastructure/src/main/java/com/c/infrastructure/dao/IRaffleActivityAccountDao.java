@@ -34,6 +34,16 @@ public interface IRaffleActivityAccountDao {
     int updateAccountQuota(RaffleActivityAccount raffleActivityAccount);
 
     /**
+     * 账户额度保存与累加 (Upsert 模式)
+     * 1. 行为：若该用户针对该活动的账户不存在，则执行 INSERT 初始化。
+     * 2. 行为：若账户已存在（主键或唯一索引冲突），则执行 UPDATE 累加可用额度。
+     * 3. 核心：基于数据库 ON DUPLICATE KEY UPDATE 实现，确保额度变动的原子性，无需额外分布式锁。
+     *
+     * @param accountPO 包含用户ID、活动ID及待增加的额度信息
+     */
+    void upsertAddAccountQuota(RaffleActivityAccount accountPO);
+
+    /**
      * 查询用户活动账户信息
      * 包含：总额度详情、当前月份镜像剩余额度、当前日期镜像剩余额度。
      *

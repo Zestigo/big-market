@@ -54,7 +54,6 @@ public class AwardRepository implements IAwardRepository {
 
     /**
      * 保存用户中奖记录及本地消息任务
-     * <p>
      * 处理逻辑：
      * 1. 映射领域实体至 PO 模型。
      * 2. 在本地事务中执行：插入中奖记录、插入任务表、占用抽奖订单。
@@ -188,28 +187,29 @@ public class AwardRepository implements IAwardRepository {
 
         transactionTemplate.execute(status -> {
             try {
-                // [步骤1] 账户余额操作：尝试累加积分
-                int updateAccountCount = userCreditAccountDao.updateAddAmount(userCreditAccount);
-                // 若受影响行数为 0，说明该用户是首次获得积分，执行初始化开户
-                if (0 == updateAccountCount) {
-                    userCreditAccountDao.insert(userCreditAccount);
-                }
-
-                // [步骤2] 更新中奖记录为完成态。此步骤失败代表该订单已处理过，触发回滚。
+                // [步骤1] 状态/流水先行：这是幂等的关键哨兵
+                // 将记录更新为完成态（SQL 需带上: WHERE order_id = ? AND state = 'wait'）
                 int updateAwardCount = userAwardRecordDao.updateAwardRecordCompletedState(userAwardRecord);
+
                 if (0 == updateAwardCount) {
-                    log.warn("更新发奖记录拦截：记录已完成或状态不匹配 userId:{} orderId:{}", userId, userAwardRecord.getOrderId());
-                    status.setRollbackOnly();
+                    // 如果更新失败，说明：1.记录不存在 2.状态已经改过了（幂等拦截）
+                    log.warn("发奖记录幂等拦截：记录已处理或不存在 userId:{} orderId:{}", userId, userAwardRecord.getOrderId());
+                    // 注意：这里不需要回滚，因为这可能是一次正常的重复请求，直接退出即可
                     return 0;
                 }
+
+                // [步骤2] 资产操作：只有状态改成功了，才真正去加钱
+                // 由于有步骤 1 的状态锁死，这里绝对不会重复累加
+                userCreditAccountDao.upsertAddAccountQuota(userCreditAccount);
+
                 return 1;
             } catch (DuplicateKeyException e) {
                 status.setRollbackOnly();
-                log.error("更新发奖记录异常，唯一索引冲突 userId:{} orderId:{}", userId, userAwardRecord.getOrderId(), e);
+                log.error("发奖唯一索引冲突 userId:{} orderId:{}", userId, userAwardRecord.getOrderId(), e);
                 throw new AppException(ResponseCode.INDEX_DUP, e);
             } catch (Exception e) {
                 status.setRollbackOnly();
-                log.error("发奖事务执行失败 userId:{}", userId, e);
+                log.error("发奖事务执行失败 userId:{} orderId:{}", userId, userAwardRecord.getOrderId(), e);
                 throw new AppException(ResponseCode.UN_ERROR, e);
             }
         });

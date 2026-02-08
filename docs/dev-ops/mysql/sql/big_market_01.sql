@@ -276,18 +276,20 @@ CREATE TABLE `user_raffle_order_003` LIKE `user_raffle_order_000`;
 DROP TABLE IF EXISTS `user_credit_order_000`;
 CREATE TABLE `user_credit_order_000`
 (
-    `id`          bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-    `user_id`     varchar(32)    NOT NULL COMMENT '用户ID',
-    `order_id`    varchar(64)    NOT NULL COMMENT '外部业务单号(幂等键)',
-    `trade_name`  varchar(64)    NOT NULL COMMENT '交易名称',
-    `trade_type`  varchar(16)    NOT NULL COMMENT '交易类型【forward-正向, reverse-反向】',
-    `amount`      decimal(10, 2) NOT NULL COMMENT '交易金额',
-    `create_time` datetime       NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    `update_time` datetime       NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    `id`              bigint(20) unsigned NOT NULL AUTO_INCREMENT COMMENT '自增主键',
+    `user_id`         varchar(32)    NOT NULL COMMENT '用户ID',
+    `order_id`        varchar(64)    NOT NULL COMMENT '内部交易单号(全局唯一流水)',
+    `trade_name`      varchar(64)    NOT NULL COMMENT '交易名称',
+    `trade_type`      varchar(16)    NOT NULL COMMENT '交易类型【forward-正向, reverse-反向】',
+    `amount`          decimal(10, 2) NOT NULL COMMENT '交易金额',
+    `out_business_no` varchar(64)    NOT NULL COMMENT '外部业务唯一单号(用于全链路幂等)',
+    `create_time`     datetime       NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `update_time`     datetime       NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     PRIMARY KEY (`id`),
     UNIQUE KEY `uq_order_id` (`order_id`),
-    KEY           `idx_user_id` (`user_id`) -- 增加 user_id 索引，方便查询个人流水
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    UNIQUE KEY `uq_out_business_no` (`out_business_no`),
+    KEY               `idx_user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户积分流水表';
 
 -- 表 _001
 DROP TABLE IF EXISTS `user_credit_order_001`;

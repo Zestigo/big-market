@@ -38,6 +38,22 @@
           AND activity_id = #{activityId}
     </update>
 
+    <insert id="upsertAddAccountQuota" parameterType="com.c.infrastructure.po.RaffleActivityAccount">
+        INSERT INTO raffle_activity_account (user_id, activity_id, total_count, total_count_surplus,
+                                             day_count, day_count_surplus, month_count, month_count_surplus,
+                                             create_time, update_time)
+        VALUES (#{userId}, #{activityId}, #{totalCount}, #{totalCountSurplus},
+                #{dayCount}, #{dayCountSurplus}, #{monthCount}, #{monthCountSurplus},
+                NOW(), NOW())
+        ON DUPLICATE KEY UPDATE total_count         = total_count + VALUES(total_count),
+                                total_count_surplus = total_count_surplus + VALUES(total_count_surplus),
+                                day_count           = day_count + VALUES(day_count),
+                                day_count_surplus   = day_count_surplus + VALUES(day_count_surplus),
+                                month_count         = month_count + VALUES(month_count),
+                                month_count_surplus = month_count_surplus + VALUES(month_count_surplus),
+                                update_time         = NOW()
+    </insert>
+
     <select id="queryActivityAccountByUserId" resultMap="dataMap" parameterType="com.c.infrastructure.po.RaffleActivityAccount">
         SELECT user_id,
                activity_id,

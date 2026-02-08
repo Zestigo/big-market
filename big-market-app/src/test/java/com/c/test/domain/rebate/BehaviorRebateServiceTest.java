@@ -1,4 +1,4 @@
-package com.c.test.rebate;
+package com.c.test.domain.rebate;
 
 import com.alibaba.fastjson2.JSON;
 import com.c.domain.rebate.model.entity.BehaviorEntity;
@@ -38,7 +38,7 @@ public class BehaviorRebateServiceTest {
         // [步骤 1] 构造用户行为实体，模拟前端或网关传入的原始行为数据
         BehaviorEntity behavior = BehaviorEntity.builder().userId("cyh").behaviorTypeVO(BehaviorTypeVO.SIGN)
                                                 // 幂等键：重复的 OutBusinessNo 会触发数据库唯一索引冲突，防止重复返利
-                                                .outBusinessNo("20260127").build();
+                .outBusinessNo("20260126").build();
 
         // [步骤 2] 执行领域服务：创建返利订单并获取订单号集合
         List<String> orderIds = behaviorRebateService.createOrder(behavior);

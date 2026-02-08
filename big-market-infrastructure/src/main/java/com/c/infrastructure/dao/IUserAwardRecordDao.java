@@ -30,11 +30,11 @@ public interface IUserAwardRecordDao {
     void insert(UserAwardRecord userAwardRecord);
 
     /**
-     * 更新中奖流水为完成状态
-     * 采用状态机更新机制（例如：状态从 待处理 变为 已完成），支持重试幂等。
+     * 更新发奖记录状态为完成态
+     * 只有当前状态为 'wait' (等待发奖) 时才允许更新成功
      *
-     * @param userAwardRecordReq 必须包含 userId (分片键) 和业务主键标识
-     * @return 更新结果：1-成功；0-失败（记录不存在或已被其他事务抢先处理）
+     * @param userAwardRecord 包含 userId, orderId 和目标状态
+     * @return 更新影响行数 (1: 成功; 0: 幂等拦截或记录不存在)
      */
-    int updateAwardRecordCompletedState(UserAwardRecord userAwardRecordReq);
+    int updateAwardRecordCompletedState(UserAwardRecord userAwardRecord);
 }

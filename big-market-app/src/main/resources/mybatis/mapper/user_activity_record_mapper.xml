@@ -17,9 +17,21 @@
     </resultMap>
 
     <insert id="insert" parameterType="com.c.infrastructure.po.UserAwardRecord">
-        insert into user_award_record(user_id, activity_id, strategy_id, order_id, award_id, award_title, award_time, award_state, create_time,
-                                      update_time)
-        values (#{userId}, #{activityId}, #{strategyId}, #{orderId}, #{awardId}, #{awardTitle}, #{awardTime}, #{awardState}, now(), now())
+        INSERT INTO user_award_record (user_id, activity_id, strategy_id, order_id,
+                                       award_id, award_title, award_time, award_state,
+                                       create_time, update_time)
+        VALUES (#{userId}, #{activityId}, #{strategyId}, #{orderId},
+                #{awardId}, #{awardTitle}, #{awardTime}, #{awardState},
+                NOW(), NOW())
     </insert>
+
+    <update id="updateAwardRecordCompletedState" parameterType="com.c.infrastructure.po.UserAwardRecord">
+        UPDATE user_award_record
+        SET award_state = 'completed',
+            update_time = NOW()
+        WHERE user_id = #{userId}
+          AND order_id = #{orderId}
+          AND award_state = 'create'
+    </update>
 
 </mapper>

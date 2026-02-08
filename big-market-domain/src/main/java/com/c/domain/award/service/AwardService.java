@@ -2,60 +2,67 @@ package com.c.domain.award.service;
 
 import com.c.domain.award.event.SendAwardMessageEvent;
 import com.c.domain.award.model.aggregate.UserAwardRecordAggregate;
+import com.c.domain.award.model.entity.DistributeAwardEntity;
 import com.c.domain.award.model.entity.TaskEntity;
 import com.c.domain.award.model.entity.UserAwardRecordEntity;
 import com.c.domain.award.model.vo.TaskStateVO;
 import com.c.domain.award.repository.IAwardRepository;
+import com.c.domain.award.service.distribute.IDistributeAward;
 import com.c.types.event.BaseEvent;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import javax.annotation.Resource;
+import java.util.Map;
 
 /**
- * 领域服务：中奖记录编排
- * <p>
- * 职责：
- * 1. 业务编排：将用户中奖实体与本地消息任务实体进行逻辑关联。
- * 2. 契约构建：基于领域事件定义，提取交换机(Exchange)与路由键(Routing Key)等通信要素。
- * 3. 聚合生命周期管理：构建聚合根对象，确保中奖记录与任务表在仓储层实现事务一致性。
+ * 中奖记录与奖品分发服务
+ * * 职责：
+ * 1. 组装中奖记录与 MQ 发送任务。
+ * 2. 路由并执行不同类型的奖品发放逻辑。
  *
  * @author cyh
  * @date 2026/02/01
  */
+@Slf4j
 @Service
 public class AwardService implements IAwardService {
 
-    @Resource
-    private IAwardRepository awardRepository;
+    private final IAwardRepository awardRepository;
+    private final SendAwardMessageEvent sendAwardMessageEvent;
+    private final Map<String, IDistributeAward> distributeAwardMap;
 
-    @Resource
-    private SendAwardMessageEvent sendAwardMessageEvent;
+    public AwardService(IAwardRepository awardRepository, SendAwardMessageEvent sendAwardMessageEvent, Map<String,
+            IDistributeAward> distributeAwardMap) {
+        this.awardRepository = awardRepository;
+        this.sendAwardMessageEvent = sendAwardMessageEvent;
+        this.distributeAwardMap = distributeAwardMap;
+    }
 
     /**
-     * 保存用户中奖记录
-     * * 过程：
-     * 1. 组装发奖业务载荷（Payload），包含用户、奖品等核心中奖信息。
-     * 2. 创建领域事件消息，利用事件模板自动生成全局唯一标识（Message ID）。
-     * 3. 封装本地消息任务（Task），记录精确的路由配置信息。
-     * 4. 交付聚合根至仓储层，通过数据库本地事务确保“记录+任务”的双写原子性。
+     * 保存中奖记录及消息任务
+     * 1. 组装发奖消息体，生成唯一消息 ID。
+     * 2. 构建 Task 实体，绑定 MQ 路由信息。
+     * 3. 封装为聚合根交由仓储层进行事务化处理。
      *
-     * @param userAwardRecordEntity 用户中奖领域实体
+     * @param userAwardRecordEntity 用户中奖实体
      */
     @Override
     public void saveUserAwardRecord(UserAwardRecordEntity userAwardRecordEntity) {
-        // 1. 构造发奖业务消息载荷
+        // 1. 构造 MQ 消息载荷
         SendAwardMessageEvent.SendAwardMessage awardMessage = SendAwardMessageEvent.SendAwardMessage
                 .builder()
                 .userId(userAwardRecordEntity.getUserId())
+                .orderId(userAwardRecordEntity.getOrderId())
                 .awardId(userAwardRecordEntity.getAwardId())
                 .awardTitle(userAwardRecordEntity.getAwardTitle())
+                .awardConfig(userAwardRecordEntity.getAwardConfig())
                 .build();
 
-        // 2. 构建标准事件包装对象 - 内部包含生成的时间戳与幂等 ID
+        // 2. 构建标准事件消息（包含 ID 和时间戳）
         BaseEvent.EventMessage<SendAwardMessageEvent.SendAwardMessage> awardMessageEventMessage =
                 sendAwardMessageEvent.buildEventMessage(awardMessage);
 
-        // 3. 构建本地消息任务实体 - 明确 Exchange 与 Routing Key 路由配置
+        // 3. 构建本地消息任务记录
         TaskEntity taskEntity = TaskEntity
                 .builder()
                 .userId(userAwardRecordEntity.getUserId())
@@ -66,14 +73,41 @@ public class AwardService implements IAwardService {
                 .state(TaskStateVO.CREATE)
                 .build();
 
-        // 4. 构建中奖记录聚合根 - 封装业务记录与任务记录的依赖关系
+        // 4. 构建聚合根并持久化（由仓储层保证事务原子性）
         UserAwardRecordAggregate userAwardRecordAggregate = UserAwardRecordAggregate
                 .builder()
                 .taskEntity(taskEntity)
                 .userAwardRecordEntity(userAwardRecordEntity)
                 .build();
 
-        // 5. 调用仓储层执行持久化 - 引导进入 DAO 层的事务控制范围
         awardRepository.saveUserAwardRecord(userAwardRecordAggregate);
+    }
+
+    /**
+     * 执行奖品分发逻辑
+     * 1. 根据奖品 ID 获取业务标识 Key。
+     * 2. 从策略映射表中匹配对应的发奖实现类。
+     * 3. 调用对应的发奖服务执行发放逻辑（如积分、实物等）。
+     *
+     * @param distributeAwardEntity 分发奖品实体
+     */
+    @Override
+    public void distributeAward(DistributeAwardEntity distributeAwardEntity) {
+        // 1. 查询奖品业务 Key
+        String awardKey = awardRepository.queryAwardKey(distributeAwardEntity.getAwardId());
+        if (null == awardKey) {
+            log.error("分发奖品失败，奖品 ID 不存在：{}", distributeAwardEntity.getAwardId());
+            return;
+        }
+
+        // 2. 匹配具体的发奖策略实现
+        IDistributeAward distributeAward = distributeAwardMap.get(awardKey);
+        if (null == distributeAward) {
+            log.error("分发奖品失败，未匹配到对应策略：{}", awardKey);
+            throw new RuntimeException("发奖服务不存在：" + awardKey);
+        }
+
+        // 3. 执行发奖
+        distributeAward.giveOutPrizes(distributeAwardEntity);
     }
 }

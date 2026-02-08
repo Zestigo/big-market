@@ -159,20 +159,20 @@ public class RaffleStrategyController implements IRaffleStrategyService {
      * 随机抽奖执行接口
      * 执行链路：1.职责链(过滤) -> 2.库内概率计算 -> 3.决策树(库存与门槛) -> 4.结果派发
      *
-     * @param requestDTO 包含 strategyId（策略ID）
+     * @param request 包含 strategyId（策略ID）
      * @return 中奖结果及展示信息
      */
     @Override
     @PostMapping("random_raffle")
-    public Response<RaffleStrategyResponseDTO> randomRaffle(@RequestBody RaffleStrategyRequestDTO requestDTO) {
+    public Response<RaffleStrategyResponseDTO> randomRaffle(@RequestBody RaffleStrategyRequestDTO request) {
         try {
-            log.info("随机抽奖开始，执行策略ID: {}", requestDTO.getStrategyId());
+            log.info("随机抽奖开始，执行策略ID: {}", request.getStrategyId());
 
             // 1. 构建抽奖因子模型
             RaffleFactorEntity factor = RaffleFactorEntity
                     .builder()
                     .userId("system") // TODO: 接入鉴权体系后动态获取
-                    .strategyId(requestDTO.getStrategyId())
+                    .strategyId(request.getStrategyId())
                     .build();
 
             // 2. 执行核心抽奖领域服务
@@ -185,7 +185,7 @@ public class RaffleStrategyController implements IRaffleStrategyService {
                     .awardIndex(raffleAwardEntity.getSort())
                     .build();
 
-            log.info("随机抽奖成功，策略ID: {}，中奖奖品ID: {}", requestDTO.getStrategyId(), responseDTO.getAwardId());
+            log.info("随机抽奖成功，策略ID: {}，中奖奖品ID: {}", request.getStrategyId(), responseDTO.getAwardId());
             return Response
                     .<RaffleStrategyResponseDTO>builder()
                     .code(ResponseCode.SUCCESS.getCode())
@@ -193,14 +193,14 @@ public class RaffleStrategyController implements IRaffleStrategyService {
                     .data(responseDTO)
                     .build();
         } catch (AppException e) {
-            log.error("随机抽奖业务异常，策略ID: {}，错误码: {}，描述: {}", requestDTO.getStrategyId(), e.getCode(), e.getInfo());
+            log.error("随机抽奖业务异常，策略ID: {}，错误码: {}，描述: {}", request.getStrategyId(), e.getCode(), e.getInfo());
             return Response
                     .<RaffleStrategyResponseDTO>builder()
                     .code(e.getCode())
                     .info(e.getInfo())
                     .build();
         } catch (Exception e) {
-            log.error("随机抽奖系统异常，策略ID: {}", requestDTO.getStrategyId(), e);
+            log.error("随机抽奖系统异常，策略ID: {}", request.getStrategyId(), e);
             return Response
                     .<RaffleStrategyResponseDTO>builder()
                     .code(ResponseCode.UN_ERROR.getCode())

@@ -146,6 +146,7 @@ public class RaffleActivityController implements IRaffleActivityService {
                     .strategyId(orderEntity.getStrategyId())
                     .orderId(orderEntity.getOrderId())
                     .awardId(raffleAwardEntity.getAwardId())
+                    .awardConfig(raffleAwardEntity.getAwardConfig())
                     .awardTitle(raffleAwardEntity.getAwardTitle())
                     .awardTime(new Date())
                     .awardState(AwardStateVO.CREATE)
@@ -177,7 +178,7 @@ public class RaffleActivityController implements IRaffleActivityService {
 
     @Override
     @PostMapping("calendar_sign_rebate")
-    public Response<Boolean> calendarSignRebate(String userId) {
+    public Response<Boolean> calendarSignRebate(@RequestParam String userId) {
         try {
             log.info("日历签到返利开始 userId:{}", userId);
 
@@ -228,7 +229,7 @@ public class RaffleActivityController implements IRaffleActivityService {
      */
     @Override
     @PostMapping("is_calendar_sign_rebate")
-    public Response<Boolean> isCalendarSignRebate(String userId) {
+    public Response<Boolean> isCalendarSignRebate(@RequestParam String userId) {
         try {
             log.info("查询用户是否完成日历签到返利开始 userId:{}", userId);
             // 生成当日业务防重 ID（yyyyMMdd）

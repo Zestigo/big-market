@@ -13,9 +13,21 @@
     </resultMap>
 
     <select id="queryAwardList" resultMap="dataMap">
-        SELECT award_id, award_key, award_desc
+        SELECT award_id, award_key, award_config, award_desc
         FROM award
-        limit 10
+        LIMIT 10
+    </select>
+
+    <select id="queryAwardConfigByAwardId" resultType="java.lang.String" parameterType="java.lang.Integer">
+        SELECT award_config
+        FROM award
+        WHERE award_id = #{awardId}
+    </select>
+    
+    <select id="queryAwardKeyByAwardId" resultType="java.lang.String">
+        SELECT award_key
+        FROM award
+        WHERE award_id = #{awardId}
     </select>
 
 </mapper>

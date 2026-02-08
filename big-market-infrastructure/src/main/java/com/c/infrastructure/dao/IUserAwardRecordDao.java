@@ -5,26 +5,36 @@ import org.apache.ibatis.annotations.Mapper;
 
 /**
  * 用户中奖记录表数据访问层 (DAO)
- * 1. 负责用户抽奖命中结果的持久化存储。
- * 2. 记录奖品发放的初始状态，为后续异步发奖或人工补偿提供依据。
- * 1. 插入数据前必须确保 award_title, user_id 等必填字段已赋值（对应数据库 NOT NULL 约束）。
- * 2. 该表通常涉及分库分表（如按 user_id 分片），调用时务必确保分片键不为空。
+ * <p>
+ * 职责描述：
+ * 1. 持久化存储用户抽奖命中的原始结果。
+ * 2. 作为奖品发放的“事实来源”，支持后续异步发奖、定时补偿及人工审计。
+ * <p>
+ * 核心规范：
+ * - 分片规则：本表按 user_id 进行物理分片，调用时必须确保 user_id 字段非空。
+ * - 字段约束：插入前需严格校验 award_title、user_id 等数据库非空字段。
+ * - 幂等性建议：建议在数据库层增加 business_id 唯一索引，配合 insert 操作防止重复入库。
  *
  * @author cyh
- * @date 2026/02/03
+ * @since 2026/02/03
  */
 @Mapper
 public interface IUserAwardRecordDao {
 
     /**
-     * 插入单条用户中奖记录
+     * 持久化单条中奖流水
+     * 在抽奖计算完成后即刻调用，锁定用户中奖状态，防止结果丢失。
      *
-     * @param userAwardRecord 用户中奖记录实体，包含：
-     * - userId: 用户ID（分片键）
-     * - awardId: 奖品ID
-     * - awardTitle: 奖品名称（不可为空）
-     * - awardState: 发奖状态
+     * @param userAwardRecord 用户中奖记录实体。
      */
     void insert(UserAwardRecord userAwardRecord);
 
+    /**
+     * 更新中奖流水为完成状态
+     * 采用状态机更新机制（例如：状态从 待处理 变为 已完成），支持重试幂等。
+     *
+     * @param userAwardRecordReq 必须包含 userId (分片键) 和业务主键标识
+     * @return 更新结果：1-成功；0-失败（记录不存在或已被其他事务抢先处理）
+     */
+    int updateAwardRecordCompletedState(UserAwardRecord userAwardRecordReq);
 }

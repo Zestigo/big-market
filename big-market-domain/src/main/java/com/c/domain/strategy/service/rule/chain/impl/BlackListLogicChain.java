@@ -46,7 +46,12 @@ public class BlackListLogicChain extends AbstractLogicChain {
         for (String blackUserId : blackListUsers) {
             if (userId.equals(blackUserId)) {
                 log.info("抽奖责任链-黑名单命中，直接返回接管奖品 userId: {}, strategyId: {}, awardId: {}", userId, strategyId, awardId);
-                return DefaultChainFactory.StrategyAwardVO.builder().awardId(awardId).logicModel(ruleModel()).build();
+                return DefaultChainFactory.StrategyAwardVO
+                        .builder()
+                        .awardId(awardId)
+                        .logicModel(ruleModel())
+                        .awardRuleValue("0.1,10")
+                        .build();
             }
         }
 

@@ -54,6 +54,7 @@
                                 update_time         = NOW()
     </insert>
 
+
     <select id="queryActivityAccountByUserId" resultMap="dataMap" parameterType="com.c.infrastructure.po.RaffleActivityAccount">
         SELECT user_id,
                activity_id,

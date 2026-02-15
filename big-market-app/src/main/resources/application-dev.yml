@@ -68,6 +68,10 @@ spring:
         exchange: send_rebate_exchange
         routing-key: send_rebate_routing_key
         queue: send_rebate_queue
+      credit_adjust_success:
+        exchange: credit_adjust_success_exchange
+        routing-key: credit_adjust_success_routing_key
+        queue: credit_adjust_success_queue
   # ========================= 分库分表（ShardingSphere）配置 =========================
   shardingsphere:
     # 1. 数据源配置

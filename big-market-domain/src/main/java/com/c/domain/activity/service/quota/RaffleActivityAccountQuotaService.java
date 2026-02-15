@@ -6,18 +6,17 @@ import com.c.domain.activity.model.vo.ActivitySkuStockKeyVO;
 import com.c.domain.activity.model.vo.OrderStateVO;
 import com.c.domain.activity.repository.IActivityRepository;
 import com.c.domain.activity.service.IRaffleActivitySkuStockService;
+import com.c.domain.activity.service.quota.policy.ITradePolicy;
 import com.c.domain.activity.service.quota.rule.factory.DefaultActivityChainFactory;
 import org.apache.commons.lang.RandomStringUtils;
 import org.springframework.stereotype.Service;
 
 import java.util.Date;
+import java.util.Map;
 
 /**
- * 抽奖活动领域服务实现类
- * * 核心职责：
- * 1. 业务流程编排：继承 AbstractRaffleActivity 抽象类，通过模板方法定义“校验-组装-落库”的标准流水线。
- * 2. 库存一致性维护：实现 ISkuStock 接口，作为异步库存流水消费的核心实现，衔接 Redis 预扣与数据库写回逻辑。
- * 3. 聚合根实例化：负责将活动配置实体与用户参与实体转换为 CreateOrderAggregate，确保持久化数据的原子性与完整性。
+ * 抽奖活动账户额度领域服务
+ * 负责业务流程编排、库存一致性维护以及额度订单聚合根的构建。
  *
  * @author cyh
  * @date 2026/01/27
@@ -26,25 +25,23 @@ import java.util.Date;
 public class RaffleActivityAccountQuotaService extends AbstractRaffleActivityAccountQuota implements IRaffleActivitySkuStockService {
 
     /**
-     * 构造函数注入：初始化底层组件
+     * 构造方法，注入核心依赖
      *
-     * @param activityRepository          活动仓储：封装对 DB、Redis 及延迟消息队列的底层访问。
-     * @param defaultActivityChainFactory 责任链工厂：通过工厂模式获取针对不同 SKU 的业务校验规则链。
+     * @param activityRepository          活动仓储接口
+     * @param defaultActivityChainFactory 活动规则责任链工厂
+     * @param tradePolicyGroup            交易策略映射组
      */
     public RaffleActivityAccountQuotaService(IActivityRepository activityRepository,
-                                             DefaultActivityChainFactory defaultActivityChainFactory) {
-        super(activityRepository, defaultActivityChainFactory);
+                                             DefaultActivityChainFactory defaultActivityChainFactory, Map<String,
+                    ITradePolicy> tradePolicyGroup) {
+        super(activityRepository, defaultActivityChainFactory, tradePolicyGroup);
     }
 
-
     /**
-     * 构建活动订单聚合根
-     * * 业务逻辑说明：
-     * 1. 实例化 ActivityOrderEntity：将充值请求中的流水信息与活动配置信息合并，作为本次参与的业务凭证。
-     * 2. 生成全局流水：目前使用 RandomStringUtils 生成 12 位数字（建议在高并发生产环境下切换至雪花算法 ID）。
-     * 3. 状态预设：订单状态初始设为 COMPLETED（已完成），表示用户已成功获得参与该活动的合法资格。
+     * 构建额度订单聚合根
+     * 将充值请求与活动配置合并，生成全局流水号并预设订单状态。
      *
-     * @return CreateOrderAggregate 包含用户信息、活动信息及订单明细的聚合根
+     * @return 包含用户信息、活动信息及订单明细的聚合根
      */
     @Override
     protected CreateQuotaOrderAggregate buildOrderAggregate(SkuRechargeEntity skuRechargeEntity,
@@ -52,7 +49,7 @@ public class RaffleActivityAccountQuotaService extends AbstractRaffleActivityAcc
                                                             ActivityEntity activityEntity,
                                                             ActivityCountEntity activityCountEntity) {
 
-        // 1. 构建活动订单实体：承载业务快照与支付/参与流水
+        // 构建活动订单实体
         ActivityOrderEntity activityOrderEntity = ActivityOrderEntity
                 .builder()
                 .userId(skuRechargeEntity.getUserId())
@@ -61,16 +58,15 @@ public class RaffleActivityAccountQuotaService extends AbstractRaffleActivityAcc
                 .activityName(activityEntity.getActivityName())
                 .strategyId(activityEntity.getStrategyId())
                 .outBusinessNo(skuRechargeEntity.getOutBusinessNo())
-                // 订单ID：作为业务主键，关联后续的抽奖流程
                 .orderId(RandomStringUtils.randomNumeric(12))
                 .orderTime(new Date())
                 .totalCount(activityCountEntity.getTotalCount())
                 .dayCount(activityCountEntity.getDayCount())
+                .payAmount(activitySkuEntity.getPayAmount())
                 .monthCount(activityCountEntity.getMonthCount())
-                .state(OrderStateVO.COMPLETED)
                 .build();
 
-        // 2. 组装并返回聚合根：统一管理关联实体的生命周期
+        // 组装并返回聚合根
         return CreateQuotaOrderAggregate
                 .builder()
                 .userId(skuRechargeEntity.getUserId())
@@ -83,34 +79,31 @@ public class RaffleActivityAccountQuotaService extends AbstractRaffleActivityAcc
     }
 
     /**
-     * 执行订单持久化落库
-     * * 调用触发点：在责任链（含库存扣减、规则匹配）执行成功后，由父类模板方法发起调用。
+     * 更新订单状态
+     * 通过仓储层对投递单关联的业务订单进行状态变更及后续处理。
      *
-     * @param createQuotaOrderAggregate 封装了订单流水与参与限额信息的聚合根
+     * @param deliveryOrderEntity 投递单实体，包含业务幂等标识
      */
     @Override
-    protected void doSaveOrder(CreateQuotaOrderAggregate createQuotaOrderAggregate) {
-        activityRepository.doSaveOrder(createQuotaOrderAggregate);
+    public void updateOrder(DeliveryOrderEntity deliveryOrderEntity) {
+        activityRepository.updateOrder(deliveryOrderEntity);
     }
 
     /**
-     * 获取异步库存更新队列中的任务
-     * * 核心作用：作为 Worker 节点的任务抓取口，实现缓存库存扣减后的异步消息消费。
+     * 获取异步库存队列值
      *
-     * @return ActivitySkuStockKeyVO 包含 SKU 信息的库存更新指令
-     * @throws InterruptedException 阻塞获取时的线程中断异常
+     * @return 待更新库存的 SKU 标识
+     * @throws InterruptedException 线程中断异常
      */
     @Override
     public ActivitySkuStockKeyVO takeQueueValue() throws InterruptedException {
         return activityRepository.takeQueueValue();
     }
 
-
     /**
-     * 刷新特定 SKU 的数据库物理库存
-     * * 处理逻辑：根据异步队列中的计数结果，通过乐观锁或 row-lock 更新数据库中的 stock 字段。
+     * 物理库存异步扣减
      *
-     * @param sku 活动对应的商品 SKU 标识
+     * @param sku 商品 SKU 编号
      */
     @Override
     public void subtractionActivitySkuStock(Long sku) {
@@ -118,10 +111,9 @@ public class RaffleActivityAccountQuotaService extends AbstractRaffleActivityAcc
     }
 
     /**
-     * 执行库存清零同步
-     * * 触发场景：当 Redis 缓存判定库存售罄时，通过此方法强行修正数据库状态，防止超卖或无效扣减。
+     * 物理库存售罄置零同步
      *
-     * @param sku 活动对应的商品 SKU 标识
+     * @param sku 商品 SKU 编号
      */
     @Override
     public void zeroOutActivitySkuStock(Long sku) {
@@ -129,10 +121,10 @@ public class RaffleActivityAccountQuotaService extends AbstractRaffleActivityAcc
     }
 
     /**
-     * 批量更新 SKU 活动库存（通常用于补偿或初始化）
-     * * @param sku   活动商品 SKU
+     * 物理库存批量同步更新
      *
-     * @param count 更新的库存差值或目标值
+     * @param sku   商品 SKU 编号
+     * @param count 扣减增量值
      */
     @Override
     public void updateActivitySkuStockBatch(Long sku, Integer count) {
@@ -140,10 +132,9 @@ public class RaffleActivityAccountQuotaService extends AbstractRaffleActivityAcc
     }
 
     /**
-     * 设置库存售罄标识（防击穿）
-     * 在缓存中设置标识位，避免在库存为 0 时仍频繁查询数据库，提升系统响应。
+     * 设置库存售罄标识
      *
-     * @param sku 活动商品 SKU
+     * @param sku 商品 SKU 编号
      */
     @Override
     public void setSkuStockZeroFlag(Long sku) {
@@ -151,37 +142,34 @@ public class RaffleActivityAccountQuotaService extends AbstractRaffleActivityAcc
     }
 
     /**
-     * 判断当前 SKU 是否已售罄
+     * 检查库存是否售罄
      *
-     * @param sku 活动商品 SKU
-     * @return boolean true 为已售罄
+     * @param sku 商品 SKU 编号
+     * @return true 为已售罄
      */
     @Override
     public boolean isSkuStockZero(Long sku) {
         return activityRepository.isSkuStockZero(sku);
     }
 
+
     /**
-     * 查询用户当日累计已参与抽奖活动的次数
-     * 职责说明：该方法通过调用仓储层接口，获取用户在特定活动下的日账户快照，并计算得出已参与次数。
-     * 常用于：1. 判定是否满足“次数锁”解锁条件；2. 前端活动页面进度条数据展示。
+     * 查询用户当日累计参与次数
      *
-     * @param activityId 活动唯一标识 ID
-     * @param userId     用户唯一标识 ID
-     * @return 当日该用户已参与抽奖的计数值。若当日未参与或账户不存在，则返回 0。
+     * @param activityId 活动唯一标识
+     * @param userId     用户唯一标识
+     * @return 当日累计参与次数，无记录则返回 0
      */
     @Override
     public Integer queryRaffleActivityAccountDayPartakeCount(Long activityId, String userId) {
-        // 直接调度领域仓储层获取计算后的统计结果
         return activityRepository.queryRaffleActivityAccountDayPartakeCount(activityId, userId);
     }
 
     /**
-     * 查询用户活动账户额度实体
-     * 该方法通过仓储层获取用户在指定活动下的账户记录，包含总次数、日次数及月次数的配额详情。
+     * 查询用户活动账户实体
      *
-     * @param activityId 活动ID
-     * @param userId     用户唯一ID
+     * @param activityId 活动 ID
+     * @param userId     用户唯一 ID
      * @return 活动账户额度实体
      */
     @Override
@@ -189,6 +177,13 @@ public class RaffleActivityAccountQuotaService extends AbstractRaffleActivityAcc
         return activityRepository.queryActivityAccountEntity(activityId, userId);
     }
 
+    /**
+     * 查询用户已参与抽奖总次数
+     *
+     * @param activityId 活动 ID
+     * @param userId     用户 ID
+     * @return 已参与次数
+     */
     @Override
     public Integer queryRaffleActivityAccountPartakeCount(Long activityId, String userId) {
         return activityRepository.queryRaffleActivityAccountPartakeCount(activityId, userId);

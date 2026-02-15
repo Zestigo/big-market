@@ -1,55 +1,56 @@
 package com.c.config;
 
 import org.springframework.amqp.core.*;
-import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
-import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
  * 基础设施配置：RabbitMQ 消息中间件
- * 1. 业务链路定义：负责库存售罄同步、奖品发放分发、行为返利投递三大核心业务的消息流转配置。
- * 2. 容错保障体系：构建死信交换机（DLX）机制，确保执行异常的消息能够进入补偿队列暂存。
- * 3. 序列化标准化：强制使用 JSON 格式替代 JDK 原生序列化，保障跨语言兼容性与可读性。
+ * 包含：库存售罄、奖品发放、营销返利、积分调账及死信队列
  *
  * @author cyh
- * @date 2026/02/05
+ * @date 2026/02/15
  */
 @Configuration
 public class RabbitMQConfig {
 
-    /** 死信交换机：用于接收所有业务队列中因重试耗尽或逻辑异常而失败的消息 */
+    /* 死信交换机名称 */
     private static final String DLX_EXCHANGE = "dlx_exchange";
-    /** 死信路由键：统一指向死信补偿队列 */
+    /* 死信路由键 */
     private static final String DLX_ROUTING_KEY = "dlx_key";
-    /** 公共死信队列：作为系统的“垃圾站”或“回收站”，由人工或 Job 介入处理 */
+    /* 死信队列名称 */
     private static final String DLX_QUEUE = "common_dead_letter_queue";
 
-    // --- 属性注入：从配置文件（application.yml）动态加载 ---
-
     @Value("${spring.rabbitmq.topic.activity_sku_stock.exchange}")
-    private String skuExchange;
+    private String skuExchange; /* SKU库存交换机 */
     @Value("${spring.rabbitmq.topic.activity_sku_stock.queue}")
-    private String skuQueue;
+    private String skuQueue; /* SKU库存队列 */
     @Value("${spring.rabbitmq.topic.activity_sku_stock.routing-key}")
-    private String skuRoutingKey;
+    private String skuRoutingKey; /* SKU库存路由键 */
 
     @Value("${spring.rabbitmq.topic.send_award.exchange}")
-    private String awardExchange;
+    private String awardExchange; /* 奖品发放交换机 */
     @Value("${spring.rabbitmq.topic.send_award.queue}")
-    private String awardQueue;
+    private String awardQueue; /* 奖品发放队列 */
     @Value("${spring.rabbitmq.topic.send_award.routing-key}")
-    private String awardRoutingKey;
+    private String awardRoutingKey; /* 奖品发放路由键 */
 
     @Value("${spring.rabbitmq.topic.send_rebate.exchange}")
-    private String rebateExchange;
+    private String rebateExchange; /* 营销返利交换机 */
     @Value("${spring.rabbitmq.topic.send_rebate.queue}")
-    private String rebateQueue;
+    private String rebateQueue; /* 营销返利队列 */
     @Value("${spring.rabbitmq.topic.send_rebate.routing-key}")
-    private String rebateRoutingKey;
+    private String rebateRoutingKey; /* 营销返利路由键 */
 
-    // --- 1. 库存售罄业务链路：用于秒杀场景下活动库存消耗的实时同步 ---
+    @Value("${spring.rabbitmq.topic.credit_adjust_success.exchange}")
+    private String creditExchange; /* 积分调账交换机 */
+    @Value("${spring.rabbitmq.topic.credit_adjust_success.queue}")
+    private String creditQueue; /* 积分调账队列 */
+    @Value("${spring.rabbitmq.topic.credit_adjust_success.routing-key}")
+    private String creditRoutingKey; /* 积分调账路由键 */
+
+    // --- 1. 库存售罄链路 (Topic) ---
 
     @Bean
     public TopicExchange activitySkuStockExchange() {
@@ -66,14 +67,14 @@ public class RabbitMQConfig {
     }
 
     @Bean
-    public Binding bindingActivitySkuStock() {
+    public Binding bindingActivitySkuStock(Queue activitySkuStockQueue, TopicExchange activitySkuStockExchange) {
         return BindingBuilder
-                .bind(activitySkuStockQueue())
-                .to(activitySkuStockExchange())
+                .bind(activitySkuStockQueue)
+                .to(activitySkuStockExchange)
                 .with(skuRoutingKey);
     }
 
-    // --- 2. 发送奖品业务链路：解耦抽奖逻辑与奖品发放（发货）逻辑 ---
+    // --- 2. 奖品发放链路 (Direct) ---
 
     @Bean
     public DirectExchange sendAwardExchange() {
@@ -90,14 +91,14 @@ public class RabbitMQConfig {
     }
 
     @Bean
-    public Binding bindingSendAward() {
+    public Binding bindingSendAward(Queue sendAwardQueue, DirectExchange sendAwardExchange) {
         return BindingBuilder
-                .bind(sendAwardQueue())
-                .to(sendAwardExchange())
+                .bind(sendAwardQueue)
+                .to(sendAwardExchange)
                 .with(awardRoutingKey);
     }
 
-    // --- 3. 发送返利业务链路：支撑签到、支付等行为后的营销返利发放 ---
+    // --- 3. 营销返利链路 (Topic) ---
 
     @Bean
     public TopicExchange sendRebateExchange() {
@@ -114,14 +115,38 @@ public class RabbitMQConfig {
     }
 
     @Bean
-    public Binding bindingSendRebate() {
+    public Binding bindingSendRebate(Queue sendRebateQueue, TopicExchange sendRebateExchange) {
         return BindingBuilder
-                .bind(sendRebateQueue())
-                .to(sendRebateExchange())
+                .bind(sendRebateQueue)
+                .to(sendRebateExchange)
                 .with(rebateRoutingKey);
     }
 
-    // --- 4. 死信队列 (DLX) 保障体系：全系统的最后一道防线 ---
+    // --- 4. 积分调账链路 (Topic) ---
+
+    @Bean
+    public TopicExchange creditExchange() {
+        return new TopicExchange(creditExchange, true, false);
+    }
+
+    @Bean
+    public Queue creditQueue() {
+        return QueueBuilder
+                .durable(creditQueue)
+                .deadLetterExchange(DLX_EXCHANGE)
+                .deadLetterRoutingKey(DLX_ROUTING_KEY)
+                .build();
+    }
+
+    @Bean
+    public Binding bindingCreditAdjust(Queue creditQueue, TopicExchange creditExchange) {
+        return BindingBuilder
+                .bind(creditQueue)
+                .to(creditExchange)
+                .with(creditRoutingKey);
+    }
+
+    // --- 5. 死信保障体系 (DLX) ---
 
     @Bean
     public DirectExchange dlxExchange() {
@@ -136,21 +161,10 @@ public class RabbitMQConfig {
     }
 
     @Bean
-    public Binding deadLetterBinding() {
+    public Binding deadLetterBinding(Queue deadLetterQueue, DirectExchange dlxExchange) {
         return BindingBuilder
-                .bind(deadLetterQueue())
-                .to(dlxExchange())
+                .bind(deadLetterQueue)
+                .to(dlxExchange)
                 .with(DLX_ROUTING_KEY);
-    }
-
-    // --- 5. 基础设施增强：统一序列化协议 ---
-
-    /**
-     * 定义 JSON 消息转换器
-     * 使用 Jackson 替代 JDK 默认序列化，提升传输效率并解决跨服务传输的 Serializable 问题。
-     */
-    @Bean
-    public MessageConverter jsonMessageConverter() {
-        return new Jackson2JsonMessageConverter();
     }
 }

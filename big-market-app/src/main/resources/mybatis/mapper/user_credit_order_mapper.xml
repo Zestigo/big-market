@@ -16,8 +16,7 @@
     <insert id="insert" parameterType="com.c.infrastructure.po.UserCreditOrder">
         INSERT INTO user_credit_order
         (user_id, order_id, trade_name, trade_type, amount, out_business_no, create_time, update_time)
-        VALUES
-            (#{userId}, #{orderId}, #{tradeName}, #{tradeType}, #{tradeAmount}, #{outBusinessNo}, NOW(), NOW())
+        VALUES (#{userId}, #{orderId}, #{tradeName}, #{tradeType}, #{tradeAmount}, #{outBusinessNo}, NOW(), NOW())
     </insert>
 
     <select id="queryOrderCompleted" parameterType="com.c.infrastructure.po.UserCreditOrder" resultType="com.c.infrastructure.po.UserCreditOrder">

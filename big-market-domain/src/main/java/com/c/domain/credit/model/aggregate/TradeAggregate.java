@@ -1,8 +1,12 @@
 package com.c.domain.credit.model.aggregate;
 
+import com.c.domain.credit.event.CreditAdjustSuccessMessageEvent;
 import com.c.domain.credit.model.entity.CreditAccountEntity;
 import com.c.domain.credit.model.entity.CreditOrderEntity;
+import com.c.domain.credit.model.entity.TaskEntity;
 import com.c.domain.credit.model.entity.TradeEntity;
+import com.c.domain.credit.model.vo.TaskStateVO;
+import com.c.types.event.BaseEvent;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -11,11 +15,9 @@ import org.apache.commons.lang3.RandomStringUtils;
 
 /**
  * 积分交易聚合根
- * 职责：作为积分交易的唯一入口，封装了“记账流水”与“账户变更”两个核心实体。
- * 作用：确保在领域层将交易指令（TradeEntity）转化为可执行的业务模型，保证数据在内存中的完整性。
  *
  * @author cyh
- * @date 2026/02/08
+ * @date 2026/02/09
  */
 @Data
 @Builder
@@ -23,46 +25,90 @@ import org.apache.commons.lang3.RandomStringUtils;
 @NoArgsConstructor
 public class TradeAggregate {
 
-    /** 用户ID：作为聚合根的标识及数据库分片键 */
+    /* 用户ID */
     private String userId;
 
-    /** 积分账户实体：定义账户金额变动的业务意图（加/减） */
+    /* 积分账户实体 */
     private CreditAccountEntity creditAccountEntity;
 
-    /** 积分订单实体：定义交易流水的详细信息及幂等单号 */
+    /* 积分订单实体 */
     private CreditOrderEntity creditOrderEntity;
 
+    /* 任务实体 */
+    private TaskEntity taskEntity;
+
     /**
-     * 构建积分交易聚合根
-     * 1. 职责：将扁平化的交易指令（TradeEntity）映射为具有层级关系的领域模型。
-     * 2. 核心：在此处统一生成内部订单 ID，并将外部防重单号（outBusinessNo）下沉至流水实体。
-     * 3. 优势：封装了复杂的构建逻辑，使 Service 层只需关心业务流程而非对象拼装。
-     *
-     * @param tradeEntity 交易指令实体，包含交易方向、金额、外部参考号等
-     * @return 组装完毕的交易聚合根
+     * 静态工厂：构建初始聚合根
+     * 职责：封装订单 ID 生成逻辑，初始化核心业务领域对象
      */
     public static TradeAggregate createTradeAggregate(TradeEntity tradeEntity) {
+        // 1. 构建流水订单实体：锁定业务单号生成规则
+        CreditOrderEntity creditOrderEntity = CreditOrderEntity
+                .builder()
+                .userId(tradeEntity.getUserId())
+                .orderId(RandomStringUtils.randomNumeric(12))
+                .tradeName(tradeEntity.getTradeName())
+                .tradeType(tradeEntity.getTradeType())
+                .tradeAmount(tradeEntity.getTradeAmount())
+                .outBusinessNo(tradeEntity.getOutBusinessNo())
+                .build();
+
+        // 2. 构建账户变动实体：承载金额调整逻辑
+        CreditAccountEntity creditAccountEntity = CreditAccountEntity
+                .builder()
+                .userId(tradeEntity.getUserId())
+                .adjustAmount(tradeEntity.getTradeAmount())
+                .tradeType(tradeEntity.getTradeType())
+                .build();
+
+        // 3. 返回聚合根实例：确保基础模型完整性
         return TradeAggregate
                 .builder()
                 .userId(tradeEntity.getUserId())
-                // 构建流水订单实体：侧重于“记录交易事实”
-                .creditOrderEntity(CreditOrderEntity
+                .creditOrderEntity(creditOrderEntity)
+                .creditAccountEntity(creditAccountEntity)
+                .build();
+    }
+
+    /**
+     * 领域行为：装配消息任务
+     * 职责：基于当前聚合根状态闭环创建消息负载，保证订单 ID 全链路一致
+     *
+     * @param event 信用调整成功事件定义
+     */
+    public void createMessageTask(CreditAdjustSuccessMessageEvent event) {
+        // 1. 构建消息负荷：映射聚合根属性至事件模型
+        CreditAdjustSuccessMessageEvent.CreditAdjustSuccessMessage message =
+                CreditAdjustSuccessMessageEvent.CreditAdjustSuccessMessage
                         .builder()
-                        .userId(tradeEntity.getUserId())
-                        // Todo: 统一生成 12 位内部流水单号
-                        .orderId(RandomStringUtils.randomNumeric(12))
-                        .tradeName(tradeEntity.getTradeName())
-                        .tradeType(tradeEntity.getTradeType())
-                        .tradeAmount(tradeEntity.getTradeAmount())
-                        .outBusinessNo(tradeEntity.getOutBusinessNo())
-                        .build())
-                // 构建账户变动实体：侧重于“驱动余额变更”
-                .creditAccountEntity(CreditAccountEntity
-                        .builder()
-                        .userId(tradeEntity.getUserId())
-                        .adjustAmount(tradeEntity.getTradeAmount())
-                        .tradeType(tradeEntity.getTradeType())
-                        .build())
+                        .userId(this.userId)
+                        .orderId(this.creditOrderEntity.getOrderId())
+                        .amount(this.creditOrderEntity.getTradeAmount())
+                        .outBusinessNo(this.creditOrderEntity.getOutBusinessNo())
+                        .build();
+
+        // 2. 包装事件消息：生成消息唯一标识及时间戳
+        BaseEvent.EventMessage<CreditAdjustSuccessMessageEvent.CreditAdjustSuccessMessage> messagePayload =
+                event.buildEventMessage(message);
+
+        // 3. 内部装配任务：将零件整合进任务实体
+        this.taskEntity = createTaskEntity(this.userId, event, messagePayload);
+    }
+
+    /**
+     * 私有工厂：生产任务零件
+     * 约束：强制通过聚合根行为触发，禁止外部越权创建
+     */
+    private static TaskEntity createTaskEntity(String userId, CreditAdjustSuccessMessageEvent event,
+                                               BaseEvent.EventMessage<CreditAdjustSuccessMessageEvent.CreditAdjustSuccessMessage> message) {
+        return TaskEntity
+                .builder()
+                .userId(userId)
+                .exchange(event.exchange())
+                .routingKey(event.routingKey())
+                .messageId(message.getId())
+                .message(message)
+                .state(TaskStateVO.CREATE)
                 .build();
     }
 }

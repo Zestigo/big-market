@@ -1,6 +1,11 @@
 package com.c.infrastructure.po;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.math.BigDecimal;
 import java.util.Date;
 
 /**
@@ -13,30 +18,39 @@ import java.util.Date;
  * @date 2026/01/27
  */
 @Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
 public class RaffleActivitySku {
 
     /** 数据库自增主键ID */
     private Long id;
 
-    /** 活动SKU业务编码，对外暴露的唯一参与标识，用户通过此编码参与对应抽奖活动 */
+    /** 活动SKU业务编码，对外暴露的唯一参与标识 */
     private Long sku;
 
-    /** 抽奖活动业务ID，外键关联raffle_activity表，绑定具体活动（名称/时间/状态等） */
+    /** 抽奖活动业务ID */
     private Long activityId;
 
-    /** 次数限制模板业务ID，外键关联RaffleActivityCount.activityCountId，复用次数限制规则 */
+    /** 次数限制模板业务ID */
     private Long activityCountId;
 
-    /** 活动总库存次数：该SKU可发放的**全局总参与资格数**（所有用户共享），配置后一般不修改 */
+    /** 活动总库存次数 */
     private Integer stockCount;
 
-    /** 活动剩余库存次数：实时记录可领取的参与资格数，支持并发扣减，扣至0则活动停止领取 */
+    /** 活动剩余库存次数 */
     private Integer stockCountSurplus;
+
+    /** 商品金额【积分】 - 对应 DDL 中的 product_amount */
+    private BigDecimal productAmount;
+
+    /** 状态（0-有效、1-无效） - 对应 DDL 中的 state */
+    private Integer state;
 
     /** 记录创建时间 */
     private Date createTime;
 
-    /** 记录最后更新时间（用于乐观锁/数据同步/库存变更追溯） */
+    /** 记录最后更新时间 */
     private Date updateTime;
 
 }

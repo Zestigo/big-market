@@ -6,8 +6,7 @@ import org.apache.ibatis.annotations.Mapper;
 import java.util.List;
 
 /**
- * 抽奖活动订单 DAO (ShardingSphere 分库分表版)
- * ShardingSphere 通过拦截 JDBC 层 SQL 语句，根据配置文件中的 shardingColumn (user_id) 自动实现路由。
+ * 抽奖活动订单数据访问接口
  *
  * @author cyh
  * @date 2026/01/25
@@ -16,19 +15,35 @@ import java.util.List;
 public interface IRaffleActivityOrderDao {
 
     /**
-     * 插入活动订单
+     * 插入活动订单记录
      *
-     * @param raffleActivityOrder 订单实体。ShardingSphere 会自动从实体类中提取 user_id 字段进行分库分表路由。
+     * @param raffleActivityOrder 订单实体
      */
     void insert(RaffleActivityOrder raffleActivityOrder);
 
     /**
-     * 根据用户ID查询活动订单列表
+     * 查询用户关联的所有活动订单
      *
-     * @param userId 用户ID。
-     *               SQL 执行时，ShardingSphere 识别到 WHERE 条件中的 user_id，从而定位到具体的物理库表。
-     * @return 订单列表。如果查询未包含分片键，ShardingSphere 可能会执行全路由扫描（应尽量避免）。
+     * @param userId 用户 ID
+     * @return 订单列表
      */
     List<RaffleActivityOrder> queryRaffleActivityOrderByUserId(String userId);
+
+    /**
+     * 更新订单状态为完成态
+     * 配合状态机校验，用于订单支付或返利完成后的状态变更。
+     *
+     * @param raffleActivityOrderReq 订单查询与更新参数
+     * @return 更新行数，1 表示成功，0 表示已被处理或订单不存在
+     */
+    int updateOrderCompleted(RaffleActivityOrder raffleActivityOrderReq);
+
+    /**
+     * 查询特定订单详情
+     *
+     * @param raffleActivityOrder 包含查询条件的订单实体
+     * @return 订单详细信息
+     */
+    RaffleActivityOrder queryRaffleActivityOrder(RaffleActivityOrder raffleActivityOrder);
 
 }

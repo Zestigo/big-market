@@ -1,5 +1,6 @@
 package com.c.domain.credit.service;
 
+import com.c.domain.credit.event.CreditAdjustSuccessMessageEvent;
 import com.c.domain.credit.model.aggregate.TradeAggregate;
 import com.c.domain.credit.model.entity.TradeEntity;
 import com.c.domain.credit.repository.ICreditRepository;
@@ -10,10 +11,9 @@ import javax.annotation.Resource;
 
 /**
  * 积分调账领域服务实现
- * 职责：作为积分领域的核心编排者，负责调度聚合根完成业务逻辑转化，并驱动资源库进行持久化。
  *
  * @author cyh
- * @date 2026/02/08
+ * @date 2026/02/09
  */
 @Slf4j
 @Service
@@ -21,32 +21,28 @@ public class CreditAdjustService implements ICreditAdjustService {
 
     @Resource
     private ICreditRepository creditRepository;
+    @Resource
+    private CreditAdjustSuccessMessageEvent messageEvent;
 
-    /**
-     * 创建积分交易订单（包含调账与流水记账）
-     * * 业务流程：
-     * 1. 指令转化：通过 {@link TradeEntity#toAggregate()} 将外部交易指令转化为内部领域聚合根。
-     * 2. 原子持久化：调用 Repository 开启事务，同步执行【积分流水写入】与【账户余额变动】。
-     * 3. 幂等控制：整体流程依赖 outBusinessNo 在数据库层的唯一索引实现全链路幂等。
-     *
-     * @param tradeEntity 交易实体指令对象
-     * @return 内部生成的唯一交易流水单号 (orderId)
-     */
     @Override
     public String createOrder(TradeEntity tradeEntity) {
-        log.info("积分调账开始 userId:{} tradeName:{} outBusinessNo:{}",
-                tradeEntity.getUserId(), tradeEntity.getTradeName(), tradeEntity.getOutBusinessNo());
+        log.info("积分调账开始 userId: {} outBusinessNo: {}", tradeEntity.getUserId(), tradeEntity.getOutBusinessNo());
 
-        // 1. 转换：封装业务意图。Service 层不再感知具体的参数拼装，保持高度抽象。
+        // 1. 转换指令：通过静态工厂构建聚合根初始态（生成 orderId）
         TradeAggregate tradeAggregate = tradeEntity.toAggregate();
 
-        // 2. 执行：驱动资源库。将内存中的聚合状态“原子化”地同步至物理数据库。
+        // 2. 自主装配：聚合根基于自身状态完成任务零件 (TaskEntity) 的构建
+        tradeAggregate.createMessageTask(messageEvent);
+
+        // 3. 存储聚合根：包含账户更新、流水记录与任务消息的事务持久化
         creditRepository.saveUserCreditTradeOrder(tradeAggregate);
 
-        // 从聚合根中获取内部生成的流水单号返回给调用方
-        String orderId = tradeAggregate.getCreditOrderEntity().getOrderId();
-        log.info("积分调账完成 userId:{} orderId:{}", tradeEntity.getUserId(), orderId);
+        log.info("积分调账完成 userId: {} orderId: {}", tradeEntity.getUserId(), tradeAggregate
+                .getCreditOrderEntity()
+                .getOrderId());
 
-        return orderId;
+        return tradeAggregate
+                .getCreditOrderEntity()
+                .getOrderId();
     }
 }

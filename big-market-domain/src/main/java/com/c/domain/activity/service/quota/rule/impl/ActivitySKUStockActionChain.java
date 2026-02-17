@@ -50,22 +50,21 @@ public class ActivitySKUStockActionChain extends AbstractActionChain {
                 activityEntity.getEndDateTime());
 
         if (status) {
-            log.info("活动责任链-商品库存处理成功。sku:{} activityId:{}", activitySkuEntity.getSku(),
-                    activityEntity.getActivityId());
+            log.info("活动责任链-商品库存处理成功。sku:{} activityId:{}", activitySkuEntity.getSku(), activityEntity.getActivityId());
 
             // 2. 异步同步：【唯一入队处】写入延迟队列，由 Job 批量更新 DB
-            activityRepository.activitySkuStockConsumeSendQueue(ActivitySkuStockKeyVO.builder()
-                                                                                     .sku(activitySkuEntity.getSku())
-                                                                                     .activityId(activityEntity.getActivityId())
-                                                                                     .build());
+            activityRepository.activitySkuStockConsumeSendQueue(ActivitySkuStockKeyVO
+                    .builder()
+                    .sku(activitySkuEntity.getSku())
+                    .activityId(activityEntity.getActivityId())
+                    .build());
 
             // 3. 链路流转：当前节点成功，执行责任链下一个节点
             return next() == null || next().action(activitySkuEntity, activityEntity, activityCountEntity);
         }
 
         // 4. 库存不足或扣减失败：抛出异常
-        log.warn("活动责任链-商品库存不足。sku:{} activityId:{}", activitySkuEntity.getSku(),
-                activityEntity.getActivityId());
+        log.warn("活动责任链-商品库存不足。sku:{} activityId:{}", activitySkuEntity.getSku(), activityEntity.getActivityId());
         throw new AppException(ResponseCode.ACTIVITY_SKU_STOCK_ERROR);
     }
 

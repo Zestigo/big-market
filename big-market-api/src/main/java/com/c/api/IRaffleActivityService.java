@@ -1,10 +1,10 @@
 package com.c.api;
 
-import com.c.api.dto.ActivityDrawRequestDTO;
-import com.c.api.dto.ActivityDrawResponseDTO;
-import com.c.api.dto.UserActivityAccountRequestDTO;
-import com.c.api.dto.UserActivityAccountResponseDTO;
+import com.c.api.dto.*;
 import com.c.types.model.Response;
+
+import java.math.BigDecimal;
+import java.util.List;
 
 /**
  * 抽奖活动服务接口
@@ -60,4 +60,28 @@ public interface IRaffleActivityService {
      */
     Response<UserActivityAccountResponseDTO> queryUserActivityAccount(UserActivityAccountRequestDTO request);
 
+    /**
+     * 根据活动 ID 查询 SKU 商品列表
+     *
+     * @param activityId 活动唯一标识 ID
+     * @return 包含 SKU 详情的响应列表
+     */
+    Response<List<SkuProductResponseDTO>> querySkuProductListByActivityId(Long activityId);
+
+    /**
+     * 查询用户可用积分账户余额
+     *
+     * @param userId 用户唯一标识 ID
+     * @return 当前用户的可用积分数值
+     */
+    Response<BigDecimal> queryUserCreditAccount(String userId);
+
+    /**
+     * 积分支付兑换商品（SKU）
+     * 执行逻辑：校验积分余额、扣减积分、生成兑换记录、同步购物车状态
+     *
+     * @param request 包含用户ID和SKU信息的请求参数对象
+     * @return true: 兑换成功; false: 兑换失败 (如积分不足、库存不足等)
+     */
+    Response<Boolean> creditPayExchangeSku(SkuProductShopCartRequestDTO request);
 }

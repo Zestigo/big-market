@@ -35,8 +35,7 @@ public class ActivityBaseActionChain extends AbstractActionChain {
     @Override
     public boolean action(ActivitySkuEntity activitySkuEntity, ActivityEntity activityEntity,
                           ActivityCountEntity activityCountEntity) {
-        log.info("活动责任链-基础校验开始 [sku:{}, activityId:{}]", activitySkuEntity.getSku(),
-                activityEntity.getActivityId());
+        log.info("活动责任链-基础校验开始 [sku:{}, activityId:{}]", activitySkuEntity.getSku(), activityEntity.getActivityId());
 
         // 1. 校验活动状态：拦截非开启状态的活动
         if (!ActivityStateVO.OPEN.equals(activityEntity.getState())) {
@@ -45,8 +44,11 @@ public class ActivityBaseActionChain extends AbstractActionChain {
 
         // 2. 校验活动日期：验证当前时间是否在活动有效期 [Begin, End] 内
         Date currentDate = new Date();
-        if (activityEntity.getBeginDateTime().after(currentDate) || activityEntity.getEndDateTime()
-                                                                                  .before(currentDate)) {
+        if (activityEntity
+                .getBeginDateTime()
+                .after(currentDate) || activityEntity
+                .getEndDateTime()
+                .before(currentDate)) {
             throw new AppException(ResponseCode.ACTIVITY_DATE_ERROR);
         }
 

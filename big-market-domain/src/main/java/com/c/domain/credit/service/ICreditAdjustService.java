@@ -1,24 +1,31 @@
 package com.c.domain.credit.service;
 
+import com.c.domain.credit.model.entity.CreditAccountEntity;
 import com.c.domain.credit.model.entity.TradeEntity;
 
 /**
  * 积分调账服务接口
- * 职责：负责用户积分账户的额度调整（增加/扣减），并记录相应的交易流水。
  *
  * @author cyh
- * @date 2026/02/08
+ * @date 2026/02/16
  */
 public interface ICreditAdjustService {
 
     /**
-     * 执行积分交易下单
-     * 1. 包含：增加积分（正向）或 扣减积分（逆向）
-     * 2. 特性：全链路幂等保证，基于 outBusinessNo 防重
+     * 创建积分交易订单
+     * 执行逻辑：支持正向积分增加与逆向积分扣减，通过外部业务单号保证幂等。
      *
-     * @param tradeEntity 交易实体对象（包含用户、金额、类型、外部单号）
+     * @param tradeEntity 交易实体对象
      * @return 内部交易流水单号 (orderId)
      */
     String createOrder(TradeEntity tradeEntity);
+
+    /**
+     * 查询用户积分账户信息
+     *
+     * @param userId 用户唯一标识 ID
+     * @return 积分账户实体（包含当前可用余额）
+     */
+    CreditAccountEntity queryUserCreditAccount(String userId);
 
 }

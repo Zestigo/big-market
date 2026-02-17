@@ -16,14 +16,15 @@ import com.c.types.common.Constants;
 import com.c.types.enums.ResponseCode;
 import com.c.types.exception.AppException;
 import lombok.extern.slf4j.Slf4j;
-import org.redisson.api.RLock;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import javax.annotation.Resource;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -53,6 +54,8 @@ public class ActivityRepository implements IActivityRepository {
     private IRaffleActivityAccountDayDao raffleActivityAccountDayDao;
     @Resource
     private IUserRaffleOrderDao userRaffleOrderDao;
+    @Resource
+    private IUserCreditOrderDao userCreditOrderDao;
     @Resource
     private TransactionTemplate transactionTemplate;
     @Resource
@@ -345,10 +348,10 @@ public class ActivityRepository implements IActivityRepository {
                 // 1. 总账户乐观锁扣减
                 int totalUpdateCount =
                         raffleActivityAccountDao.updateActivityAccountSubtractionQuota(RaffleActivityAccount
-                                .builder()
-                                .userId(userId)
-                                .activityId(activityId)
-                                .build());
+                        .builder()
+                        .userId(userId)
+                        .activityId(activityId)
+                        .build());
                 if (1 != totalUpdateCount) {
                     status.setRollbackOnly();
                     throw new AppException(ResponseCode.ACCOUNT_QUOTA_ERROR);
@@ -548,10 +551,10 @@ public class ActivityRepository implements IActivityRepository {
         // 1. 查询总账户额度
         RaffleActivityAccount raffleActivityAccount =
                 raffleActivityAccountDao.queryActivityAccountByUserId(RaffleActivityAccount
-                        .builder()
-                        .activityId(activityId)
-                        .userId(userId)
-                        .build());
+                .builder()
+                .activityId(activityId)
+                .userId(userId)
+                .build());
 
         // 如果总账户不存在，直接返回一个初始化的空额度实体
         if (null == raffleActivityAccount) {
@@ -571,17 +574,17 @@ public class ActivityRepository implements IActivityRepository {
         // 2. 查询月、日账户额度
         RaffleActivityAccountMonth raffleActivityAccountMonth =
                 raffleActivityAccountMonthDao.queryActivityAccountMonthByUserId(RaffleActivityAccountMonth
-                        .builder()
-                        .activityId(activityId)
-                        .userId(userId)
-                        .build());
+                .builder()
+                .activityId(activityId)
+                .userId(userId)
+                .build());
 
         RaffleActivityAccountDay raffleActivityAccountDay =
                 raffleActivityAccountDayDao.queryActivityAccountDayByUserId(RaffleActivityAccountDay
-                        .builder()
-                        .activityId(activityId)
-                        .userId(userId)
-                        .build());
+                .builder()
+                .activityId(activityId)
+                .userId(userId)
+                .build());
 
         // 3. 组装并返回领域实体
         return ActivityAccountEntity
@@ -608,16 +611,80 @@ public class ActivityRepository implements IActivityRepository {
         // 1. 查询用户活动账户
         RaffleActivityAccount raffleActivityAccount =
                 raffleActivityAccountDao.queryActivityAccountByUserId(RaffleActivityAccount
-                        .builder()
-                        .activityId(activityId)
-                        .userId(userId)
-                        .build());
+                .builder()
+                .activityId(activityId)
+                .userId(userId)
+                .build());
 
         // 2. 账户不存在则返回参与次数为 0 (防止空指针)
         if (null == raffleActivityAccount) return 0;
 
         // 3. 计算已参与次数：总次数 - 剩余次数
         return raffleActivityAccount.getTotalCount() - raffleActivityAccount.getTotalCountSurplus();
+    }
+
+    @Override
+    public UnpaidActivityOrderEntity queryUnpaidActivityOrder(SkuRechargeEntity skuRechargeEntity) {
+        // 1. 入参防御性校验
+        if (skuRechargeEntity == null || skuRechargeEntity.getUserId() == null) {
+            return null;
+        }
+
+        // 2. 构建查询 PO 对象 (对应数据库中的 create_time 逻辑)
+        RaffleActivityOrder raffleActivityOrder = RaffleActivityOrder
+                .builder()
+                .userId(skuRechargeEntity.getUserId())
+                .sku(skuRechargeEntity.getSku())
+                .build();
+
+        // 3. 执行查询并转换 (利用 Optional 避免显式 if-else)
+        return Optional
+                .ofNullable(raffleActivityOrderDao.queryUnpaidActivityOrder(raffleActivityOrder))
+                .map(res -> UnpaidActivityOrderEntity
+                        .builder()
+                        .userId(res.getUserId())
+                        .orderId(res.getOrderId())
+                        .outBusinessNo(res.getOutBusinessNo())
+                        .payAmount(res.getPayAmount())
+                        .build())
+                .orElse(null);
+    }
+
+
+    @Override
+    public List<SkuProductEntity> querySkuProductEntityListByActivityId(Long activityId) {
+        // 1. 查询基础活动 SKU 列表
+        List<RaffleActivitySku> raffleActivitySkus = raffleActivitySkuDao.queryActivitySkuListByActivityId(activityId);
+        List<SkuProductEntity> skuProductEntities = new ArrayList<>(raffleActivitySkus.size());
+
+        // 2. 循环处理每个 SKU，聚合次数配置并执行 PO -> Entity 转换
+        for (RaffleActivitySku raffleActivitySku : raffleActivitySkus) {
+            // 查询该 SKU 对应的次数限制配置
+            RaffleActivityCount raffleActivityCount =
+                    raffleActivityCountDao.queryRaffleActivityCountByActivityCountId(raffleActivitySku.getActivityCountId());
+
+            // 组装次数实体对象
+            SkuProductEntity.ActivityCount activityCount = SkuProductEntity.ActivityCount
+                    .builder()
+                    .totalCount(raffleActivityCount.getTotalCount())
+                    .dayCount(raffleActivityCount.getDayCount())
+                    .monthCount(raffleActivityCount.getMonthCount())
+                    .build();
+
+            // 构建并添加 SKU 产品实体
+            skuProductEntities.add(SkuProductEntity
+                    .builder()
+                    .sku(raffleActivitySku.getSku())
+                    .activityId(raffleActivitySku.getActivityId())
+                    .activityCountId(raffleActivitySku.getActivityCountId())
+                    .stockCount(raffleActivitySku.getStockCount())
+                    .stockCountSurplus(raffleActivitySku.getStockCountSurplus())
+                    .productAmount(raffleActivitySku.getProductAmount())
+                    .activityCount(activityCount)
+                    .build());
+        }
+
+        return skuProductEntities;
     }
 
     // --- 简单封装方法保持原有逻辑 ---

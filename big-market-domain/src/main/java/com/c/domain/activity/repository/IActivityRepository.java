@@ -218,4 +218,19 @@ public interface IActivityRepository {
      */
     Integer queryRaffleActivityAccountPartakeCount(Long activityId, String userId);
 
+    /**
+     * 查询用户指定 SKU 下的待支付订单记录
+     *
+     * @param skuRechargeEntity 包含用户ID和SKU信息的充值实体
+     * @return 未支付订单业务实体
+     */
+    UnpaidActivityOrderEntity queryUnpaidActivityOrder(SkuRechargeEntity skuRechargeEntity);
+
+    /**
+     * 根据活动 ID 查询 SKU 产品实体列表
+     *
+     * @param activityId 活动唯一标识 ID
+     * @return 包含 SKU 信息及次数配置的实体列表集合
+     */
+    List<SkuProductEntity> querySkuProductEntityListByActivityId(Long activityId);
 }

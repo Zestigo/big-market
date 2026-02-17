@@ -9,58 +9,76 @@ import java.util.Map;
 
 /**
  * 抽奖活动规则责任链工厂
- * 职责：
- * 1. 自动扫描并收集 Spring 容器中所有的 {@link IActionChain} 策略实现。
- * 2. 按照业务预设的逻辑顺序（准入校验 -> 异步库存），完成责任链的装配。
- * 3. 向外层服务（应用层/领域逻辑）提供统一的链路执行入口。
+ * * 知识点点拨：
+ * 1. 策略模式：通过 Map 注入，将所有 IActionChain 的实现类收集起来。
+ * 2. 责任链模式：将离散的策略节点，按照业务逻辑首尾相连。
  *
  * @author cyh
- * @date 2026/01/29
+ * @date 2026/02/17
  */
 @Service
 public class DefaultActivityChainFactory {
 
-    /** 责任链头节点，负责开启整个校验流程 */
-    private final IActionChain actionChain;
+    private final IActionChain actionChain; /* 责任链头节点：整个链路的唯一入口 */
 
     /**
-     * 构造函数：实现规则节点的自动发现与硬编码编排
+     * 构造函数：实现规则节点的自动发现与动态编排
      *
-     * @param actionChainGroup Spring 自动注入。Key: Bean名称 (如 "activity_base_action"), Value: 实现类实例
+     * @param actionChainGroup Spring 会自动将所有 IActionChain 接口的实现类注入到这个 Map 中
+     *                         Key: Bean 的名称（如 activity_base_action）
+     *                         Value: 对应的实例对象
      */
     public DefaultActivityChainFactory(Map<String, IActionChain> actionChainGroup) {
-        // 1. 获取基础校验节点（第一道防线：状态、时间、静态库存）
-        actionChain = actionChainGroup.get(ActionModel.activity_base_action.code);
+        // 知识点 1：枚举的有序性
+        // ActionModel.values() 返回的数组顺序，严格等同于你在枚举类中定义的先后顺序。
+        ActionModel[] models = ActionModel.values();
 
-        // 2. 编排责任链：将库存扣减节点（第二道防线：Redis 预扣、MQ发送）挂载到基础校验节点之后
-        // 通过 ActionModel 枚举管理 Bean 名称，避免硬编码字符串带来的拼写错误
-        actionChain.appendNext(actionChainGroup.get(ActionModel.activity_sku_stock_action.getCode()));
+        // 知识点 2：确定头节点
+        // 责任链必须有一个起点。我们取枚举定义的第一个节点作为“第一道关卡”。
+        this.actionChain = actionChainGroup.get(models[0].getCode());
+        if (null == this.actionChain) {
+            throw new RuntimeException("责任链初始化失败：未能找到头节点 [" + models[0].getCode() + "]");
+        }
+
+        // 知识点 3：动态挂载（指针移动）
+        // 想象你在排队，current 始终代表当前队列的最后一个人，新来的人（nextNode）接在他后面。
+        IActionChain current = this.actionChain; /* 初始指向头节点 */
+
+        for (int i = 1; i < models.length; i++) {
+            IActionChain nextNode = actionChainGroup.get(models[i].getCode());
+            if (null != nextNode) {
+                // 将新节点挂在当前节点的后面
+                current.appendNext(nextNode);
+                // 关键点：将 current 指针移向新挂载的节点，为下一次“接龙”做准备
+                current = nextNode;
+            }
+        }
     }
 
     /**
-     * 开启活动规则校验链路
-     *
-     * @return 已经组装完毕的规则链头节点，调用其 action 方法即可开始递归校验
+     * 向外暴露链路入口
+     * 业务层拿到这个 actionChain 后，只需调用其 action() 方法，
+     * 内部会自动根据 appendNext 的顺序执行下去。
      */
     public IActionChain openActionChain() {
         return this.actionChain;
     }
 
     /**
-     * 活动动作模型枚举
-     * 统一管理责任链节点的 Bean 名称与业务描述。
-     * 当需要新增节点（如黑名单过滤、风险控制）时，在此枚举中定义并在构造函数中挂载即可。
+     * 业务规则模型枚举
+     * 【重要】这里的定义顺序 = 责任链的执行顺序
      */
     @Getter
     @AllArgsConstructor
     public enum ActionModel {
 
-        activity_base_action("activity_base_action", "活动状态、时间及基础静态库存校验"), activity_sku_stock_action(
-                "activity_sku_stock_action", "活动SKU物理库存预扣减及异步同步"),
-        ;
+        // 第一步：基础校验（优先级最高）
+        BASE_ACTION("activity_base_action", "活动状态、时间校验"),
 
-        private final String code;
-        private final String info;
+        // 第二步：库存校验（基础通过后执行）
+        SKU_STOCK_ACTION("activity_sku_stock_action", "库存预扣减校验");
+
+        private final String code; /* 对应 Spring Bean 的 ID */
+        private final String info; /* 描述 */
     }
-
 }

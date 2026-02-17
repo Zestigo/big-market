@@ -22,19 +22,14 @@
     </resultMap>
 
     <insert id="insert" parameterType="com.c.infrastructure.po.RaffleActivityOrder">
-        INSERT INTO raffle_activity_order (
-            user_id, sku, activity_id, activity_name, strategy_id,
-            order_id, order_time, total_count, day_count, month_count,
-            pay_amount, state, out_business_no, create_time, update_time
-        )
-        VALUES (
-                   #{userId}, #{sku}, #{activityId}, #{activityName}, #{strategyId},
-                   #{orderId}, #{orderTime}, #{totalCount}, #{dayCount}, #{monthCount},
-                   #{payAmount}, #{state}, #{outBusinessNo}, NOW(), NOW()
-               )
-        ON DUPLICATE KEY UPDATE
-                             state = VALUES(state),
-                             update_time = NOW()
+        INSERT INTO raffle_activity_order (user_id, sku, activity_id, activity_name, strategy_id,
+                                           order_id, order_time, total_count, day_count, month_count,
+                                           pay_amount, state, out_business_no, create_time, update_time)
+        VALUES (#{userId}, #{sku}, #{activityId}, #{activityName}, #{strategyId},
+                #{orderId}, #{orderTime}, #{totalCount}, #{dayCount}, #{monthCount},
+                #{payAmount}, #{state}, #{outBusinessNo}, NOW(), NOW())
+        ON DUPLICATE KEY UPDATE state       = VALUES(state),
+                                update_time = NOW()
     </insert>
 
     <update id="updateOrderCompleted" parameterType="com.c.infrastructure.po.RaffleActivityOrder">
@@ -46,13 +41,68 @@
           AND state = 'wait_pay'
     </update>
 
+    <select id="queryRaffleActivityOrderByUserId" parameterType="java.lang.String" resultMap="dataMap">
+        SELECT user_id,
+               sku,
+               activity_id,
+               activity_name,
+               strategy_id,
+               order_id,
+               order_time,
+               total_count,
+               day_count,
+               month_count,
+               pay_amount,
+               state,
+               out_business_no,
+               create_time,
+               update_time
+        FROM raffle_activity_order
+        WHERE user_id = #{userId}
+    </select>
+
     <select id="queryRaffleActivityOrder" parameterType="com.c.infrastructure.po.RaffleActivityOrder" resultMap="dataMap">
-        SELECT user_id, sku, activity_id, activity_name, strategy_id,
-               order_id, order_time, total_count, day_count, month_count,
-               pay_amount, state, out_business_no, create_time, update_time
+        SELECT user_id,
+               sku,
+               activity_id,
+               activity_name,
+               strategy_id,
+               order_id,
+               order_time,
+               total_count,
+               day_count,
+               month_count,
+               pay_amount,
+               state,
+               out_business_no,
+               create_time,
+               update_time
         FROM raffle_activity_order
         WHERE user_id = #{userId}
           AND out_business_no = #{outBusinessNo}
+    </select>
+
+    <select id="queryUnpaidActivityOrder" parameterType="com.c.infrastructure.po.RaffleActivityOrder" resultMap="dataMap">
+        SELECT user_id,
+               sku,
+               activity_id,
+               activity_name,
+               strategy_id,
+               order_id,
+               create_time,
+               total_count,
+               day_count,
+               month_count,
+               pay_amount,
+               state,
+               out_business_no
+        FROM raffle_activity_order
+        WHERE user_id = #{userId}
+          AND sku = #{sku}
+          AND state = 'wait_pay'
+          AND create_time >= DATE_SUB(NOW(), INTERVAL 1 MONTH)
+        ORDER BY id DESC
+        LIMIT 1
     </select>
 
 </mapper>

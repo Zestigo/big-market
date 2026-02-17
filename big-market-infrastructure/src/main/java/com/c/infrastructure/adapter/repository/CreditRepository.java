@@ -24,6 +24,7 @@ import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import javax.annotation.Resource;
+import java.math.BigDecimal;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -161,5 +162,33 @@ public class CreditRepository implements ICreditRepository {
             log.error("【积分调账】消息发布失败 userId:{}", userId, e); // 打印堆栈
             taskDao.updateTaskSendMessageFail(task);
         }
+    }
+
+    @Override
+    public CreditAccountEntity queryUserCreditAccount(String userId) {
+        // 1. 构造查询参数对象
+        UserCreditAccount accountReq = UserCreditAccount
+                .builder()
+                .userId(userId)
+                .build();
+
+        // 2. 执行数据库查询
+        UserCreditAccount userCreditAccount = userCreditAccountDao.queryUserCreditAccount(accountReq);
+
+        // 3. 结果空值处理：若账户不存在，则返回零值余额实体
+        if (null == userCreditAccount) {
+            return CreditAccountEntity
+                    .builder()
+                    .userId(userId)
+                    .adjustAmount(BigDecimal.ZERO)
+                    .build();
+        }
+
+        // 4. 封装领域实体并返回
+        return CreditAccountEntity
+                .builder()
+                .userId(userId)
+                .adjustAmount(userCreditAccount.getAvailableAmount())
+                .build();
     }
 }

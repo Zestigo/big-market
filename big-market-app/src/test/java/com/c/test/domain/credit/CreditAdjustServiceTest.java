@@ -6,6 +6,7 @@ import com.c.domain.credit.model.vo.TradeNameVO;
 import com.c.domain.credit.model.vo.TradeTypeVO;
 import com.c.domain.credit.service.ICreditAdjustService;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -41,10 +42,7 @@ public class CreditAdjustServiceTest {
                 .tradeName(TradeNameVO.REBATE)
                 .tradeType(TradeTypeVO.FORWARD)
                 .tradeAmount(new BigDecimal("100.19"))
-                .outBusinessNo(UUID
-                        .randomUUID()
-                        .toString()
-                        .replace("-", "")) // 动态单号防止冲突
+                .outBusinessNo(RandomStringUtils.randomNumeric(12)) // 动态单号防止冲突
                 .build();
 
         // 2. 执行调账
@@ -68,7 +66,7 @@ public class CreditAdjustServiceTest {
                 .tradeName(TradeNameVO.REBATE)
                 .tradeType(TradeTypeVO.REVERSE)
                 .tradeAmount(new BigDecimal("1.68"))
-                .outBusinessNo("236815010605")
+                .outBusinessNo("358419369938")
                 .build();
 
         // 2. 执行调账

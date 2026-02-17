@@ -344,6 +344,7 @@ public class RaffleActivityController implements IRaffleActivityService {
      * @return SKU 商品列表响应对象
      */
     @Override
+    @PostMapping("query_sku_product_list_by_activity_id")
     public Response<List<SkuProductResponseDTO>> querySkuProductListByActivityId(Long activityId) {
         try {
             log.info("查询 sku 商品集合开始 activityId:{}", activityId);
@@ -414,6 +415,7 @@ public class RaffleActivityController implements IRaffleActivityService {
      * @return 账户可用积分值
      */
     @Override
+    @PostMapping("query_user_credit_account")
     public Response<BigDecimal> queryUserCreditAccount(String userId) {
         try {
             log.info("查询用户积分值开始 userId:{}", userId);
@@ -449,15 +451,18 @@ public class RaffleActivityController implements IRaffleActivityService {
      */
     @Override
     @PostMapping("credit_pay_exchange_sku")
+
     public Response<Boolean> creditPayExchangeSku(SkuProductShopCartRequestDTO request) {
         String userId = request.getUserId();
         Long sku = request.getSku();
-        String outBusinessNo = RandomStringUtils.randomNumeric(12);
+        // 1. 外部单号建议由前端传入或在最外层生成，用于整个链路的幂等追踪
+        String outBusinessNo = StringUtils.isBlank(request.getOutBusinessNo()) ? RandomStringUtils.randomNumeric(12)
+                : request.getOutBusinessNo();
 
         try {
             log.info("积分兑换商品开始 userId:{} sku:{} outBusinessNo:{}", userId, sku, outBusinessNo);
 
-            // 1. 创建兑换订单：校验活动、库存及合规性，生成待支付订单
+            // 2. 创建兑换订单：内部包含对一个月内未支付订单的校验及复用逻辑
             SkuRechargeEntity skuRechargeEntity = SkuRechargeEntity
                     .builder()
                     .userId(userId)
@@ -468,23 +473,26 @@ public class RaffleActivityController implements IRaffleActivityService {
 
             UnpaidActivityOrderEntity unpaidActivityOrder =
                     raffleActivityAccountQuotaService.createOrder(skuRechargeEntity);
-            outBusinessNo = unpaidActivityOrder.getOutBusinessNo();
-            log.info("积分兑换商品-创建活动订单完成 userId:{} outBusinessNo:{}", userId, outBusinessNo);
 
-            // 2. 构造积分支付交易请求
+            // 这里必须复用 query/create 阶段返回的真实单号（可能是一个月内的老订单单号）
+            String actualOutBusinessNo = unpaidActivityOrder.getOutBusinessNo();
+            log.info("积分兑换商品-创建/获取活动订单完成 userId:{} outBusinessNo:{} actualOutBusinessNo:{}", userId, outBusinessNo,
+                    actualOutBusinessNo);
+
+            // 3. 构造积分支付交易请求
             TradeEntity tradeEntity = TradeEntity
                     .builder()
                     .userId(userId)
                     .tradeName(TradeNameVO.CONVERT_SKU)
                     .tradeType(TradeTypeVO.REVERSE)
                     .tradeAmount(unpaidActivityOrder.getPayAmount())
-                    .outBusinessNo(outBusinessNo)
+                    .outBusinessNo(actualOutBusinessNo) // 使用最终业务单号
                     .build();
 
-            // 3. 执行积分账户扣减
-            // 注意：此处若支付失败，后续需通过状态机补偿或分布式事务保障订单状态一致性
-            String orderId = creditAdjustService.createOrder(tradeEntity);
-            log.info("积分兑换商品-支付订单完成 userId:{} orderId:{}", userId, orderId);
+            // 4. 执行积分账户扣减（积分支付动作）
+            String creditOrderId = creditAdjustService.createOrder(tradeEntity);
+            log.info("积分兑换商品-支付确认完成 userId:{} actualOutBusinessNo:{} creditOrderId:{}", userId, actualOutBusinessNo,
+                    creditOrderId);
 
             return Response
                     .<Boolean>builder()
@@ -502,7 +510,7 @@ public class RaffleActivityController implements IRaffleActivityService {
                     .data(false)
                     .build();
         } catch (Exception e) {
-            log.error("积分兑换商品系统错误 userId:{} sku:{}", userId, sku, e);
+            log.error("积分兑换商品系统未知错误 userId:{} sku:{}", userId, sku, e);
             return Response
                     .<Boolean>builder()
                     .code(ResponseCode.UN_ERROR.getCode())

@@ -5,6 +5,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.io.Serializable;
+
 /**
  * SKU产品购物车请求 DTO
  *
@@ -15,14 +17,20 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class SkuProductShopCartRequestDTO {
+public class SkuProductShopCartRequestDTO implements Serializable {
 
-    /* 用户唯一标识 ID (通常为 Long 类型或 String 格式的 UUID) */
+    private static final long serialVersionUID = 1L;
+
+    /* 外部业务单号 */
+    private String outBusinessNo;
+
+    /* 用户ID */
     private String userId;
 
-    /* 商品 SKU 唯一标识 ID */
+    /* 商品SKU */
     private Long sku;
 
-    /* 商品购买数量 (建议补充，购物车通常需要传量) */
+    /* 购买数量 */
     private Integer quantity;
+
 }

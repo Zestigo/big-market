@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.io.Serializable;
 import java.util.List;
 
 /**
@@ -18,7 +19,7 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class RaffleStrategyRuleWeightResponseDTO {
+public class RaffleStrategyRuleWeightResponseDTO implements Serializable {
 
     /** 解锁当前权重等级所需的总抽奖次数（阈值） */
     private Integer ruleWeightCount;

@@ -11,11 +11,13 @@ import com.c.domain.strategy.service.IRaffleAward;
 import com.c.domain.strategy.service.IRaffleRule;
 import com.c.domain.strategy.service.IRaffleStrategy;
 import com.c.domain.strategy.service.armory.IStrategyArmory;
+import com.c.types.annotations.DCCValue;
 import com.c.types.enums.ResponseCode;
 import com.c.types.exception.AppException;
 import com.c.types.model.Response;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.dubbo.config.annotation.DubboService;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
@@ -37,6 +39,7 @@ import java.util.stream.Collectors;
 @RestController
 @CrossOrigin("${app.config.cross-origin}")
 @RequestMapping("/api/${app.config.api-version}/raffle/strategy/")
+@DubboService(version = "1.0")
 public class RaffleStrategyController implements IRaffleStrategyService {
 
     @Resource

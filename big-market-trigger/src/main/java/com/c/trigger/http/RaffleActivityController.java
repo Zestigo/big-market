@@ -25,12 +25,15 @@ import com.c.domain.strategy.model.entity.RaffleAwardEntity;
 import com.c.domain.strategy.model.entity.RaffleFactorEntity;
 import com.c.domain.strategy.service.IRaffleStrategy;
 import com.c.domain.strategy.service.armory.IStrategyArmory;
+import com.c.types.annotations.DCCConfiguration;
+import com.c.types.annotations.DCCValue;
 import com.c.types.enums.ResponseCode;
 import com.c.types.exception.AppException;
 import com.c.types.model.Response;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.dubbo.config.annotation.DubboService;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
@@ -44,14 +47,16 @@ import java.util.List;
 /**
  * 抽奖活动前端控制器
  * 描述：负责抽奖活动的生命周期管理，包括活动装配预热和用户参与抽奖的核心流程。
- * * @author cyh
  *
- * @since 2026/01/23
+ * @author cyh
+ * @date 2026/02/21
  */
 @Slf4j
 @RestController
 @CrossOrigin("${app.config.cross-origin}")
 @RequestMapping("/api/${app.config.api-version}/raffle/activity/")
+@DCCConfiguration(prefix = "raffle.activity", dataId = "raffle-config.yaml")
+@DubboService(version = "1.0")
 public class RaffleActivityController implements IRaffleActivityService {
 
     @Resource
@@ -72,6 +77,14 @@ public class RaffleActivityController implements IRaffleActivityService {
     private IRaffleActivityAccountQuotaService raffleActivityAccountQuotaService;
     @Resource
     private ICreditAdjustService creditAdjustService;
+
+
+    /*  动态配置中心：抽奖接口降级开关
+     * 最终 Key：raffle.activity.degradeSwitch
+     * 所属 DataID：raffle-config.yaml
+     */
+    @DCCValue("degradeSwitch:open")
+    private String degradeSwitch; /* 抽奖业务降级开关状态 */
 
     private static final DateTimeFormatter DATE_FORMAT_DAY = DateTimeFormatter.ofPattern("yyyyMMdd");
 
@@ -123,27 +136,35 @@ public class RaffleActivityController implements IRaffleActivityService {
     @Override
     @PostMapping("draw")
     public Response<ActivityDrawResponseDTO> draw(@RequestBody ActivityDrawRequestDTO request) {
-        // 1. 定义局部变量，用于安全日志记录
+        /* 1. 定义局部变量，用于安全日志记录及异常处理反馈 */
         String userId = "unknown";
         Long activityId = null;
 
         try {
-            // 2. 严谨的入参校验：先判定 request 对象本身，再判定内部属性
+            // 2. 严谨的入参校验：判定 request 对象及内部属性合法性
             if (null == request || StringUtils.isBlank(request.getUserId()) || null == request.getActivityId()) {
                 log.error("抽奖请求参数非法: {}", request);
                 throw new AppException(ResponseCode.ILLEGAL_PARAMETER);
             }
 
-            // 3. 赋值（此时已确保 request 不为 null）
+            // 3. 变量赋值（确保后续 catch 块能捕获到具体用户信息）
             userId = request.getUserId();
             activityId = request.getActivityId();
+
+            // 4. 【核心设置点】Nacos 动态降级判定
+            // 逻辑：放在此处可确保日志记录是谁触发了降级，且在执行重业务（DB操作）前进行拦截
+            if (!"open".equals(degradeSwitch)) {
+                log.warn("抽奖接口已触发 Nacos 动态降级拦截，userId:{} activityId:{}", userId, activityId);
+                return Response.fail(ResponseCode.DEGRADE_SWITCH);
+            }
+
             log.info("抽奖行为触发，userId:{} activityId:{}", userId, activityId);
 
-            // 4. 参与活动：扣减额度并创建用户抽奖参与订单
+            // 5. 参与活动：扣减额度并创建用户抽奖参与记录订单
             UserRaffleOrderEntity orderEntity = raffleActivityPartakeService.createOrder(userId, activityId);
             log.info("用户参与活动成功，userId:{} activityId:{} orderId:{}", userId, activityId, orderEntity.getOrderId());
 
-            // 5. 执行抽奖决策
+            // 6. 执行抽奖决策：基于策略 ID 和用户上下文计算中奖结果
             RaffleAwardEntity raffleAwardEntity = raffleStrategy.performRaffle(RaffleFactorEntity
                     .builder()
                     .userId(userId)
@@ -151,7 +172,7 @@ public class RaffleActivityController implements IRaffleActivityService {
                     .endDateTime(orderEntity.getEndDateTime())
                     .build());
 
-            // 6. 结果持久化
+            // 7. 结果持久化：写入用户中奖记录，等待后续发奖
             UserAwardRecordEntity userAwardRecord = UserAwardRecordEntity
                     .builder()
                     .userId(userId)
@@ -166,7 +187,7 @@ public class RaffleActivityController implements IRaffleActivityService {
                     .build();
             awardService.saveUserAwardRecord(userAwardRecord);
 
-            // 7. 组装响应数据
+            // 8. 组装响应数据 DTO
             ActivityDrawResponseDTO responseDTO = ActivityDrawResponseDTO
                     .builder()
                     .awardId(raffleAwardEntity.getAwardId())
@@ -176,14 +197,15 @@ public class RaffleActivityController implements IRaffleActivityService {
 
             log.info("抽奖执行完成，userId:{} orderId:{} awardId:{}", userId, orderEntity.getOrderId(),
                     raffleAwardEntity.getAwardId());
+
             return Response.success(responseDTO);
 
         } catch (AppException e) {
-            // 【安全修正】使用局部变量 userId 和 activityId，避免依赖可能为 null 的 request 对象
+            // 业务异常捕获：记录错误码和错误描述
             log.error("抽奖业务异常，userId:{} activityId:{} code:{} info:{}", userId, activityId, e.getCode(), e.getInfo());
             return Response.fail(e.getCode(), e.getInfo());
         } catch (Exception e) {
-            // 【安全修正】同上
+            // 系统未知异常捕获：保证接口不直接崩溃，返回通用错误
             log.error("抽奖系统未知错误，userId:{} activityId:{}", userId, activityId, e);
             return Response.fail(ResponseCode.UN_ERROR);
         }

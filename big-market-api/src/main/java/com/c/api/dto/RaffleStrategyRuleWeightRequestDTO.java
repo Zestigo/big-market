@@ -5,6 +5,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.io.Serializable;
+
 /**
  * 抽奖策略规则权重请求 DTO
  * 用于查询用户在特定活动下的权重档位信息（如：累计抽奖次数达标状态）
@@ -16,7 +18,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class RaffleStrategyRuleWeightRequestDTO {
+public class RaffleStrategyRuleWeightRequestDTO implements Serializable {
 
     /** 用户唯一标识 */
     private String userId;

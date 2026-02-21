@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
 
 /**
@@ -17,7 +18,7 @@ import java.math.BigDecimal;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class SkuProductResponseDTO {
+public class SkuProductResponseDTO implements Serializable {
 
     /* 商品 SKU 唯一标识 ID */
     private Long sku;

@@ -75,7 +75,10 @@ public class RaffleActivityPartakeService extends AbstractRaffleActivityPartake 
         }
 
         // 2. 转换当前时间窗口标识（将Date转换为LocalDate，适配线程安全的DateTimeFormatter）
-        LocalDate currentLocalDate = currentDate.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
+        LocalDate currentLocalDate = currentDate
+                .toInstant()
+                .atZone(ZoneId.systemDefault())
+                .toLocalDate();
         String month = DATE_FORMATTER_MONTH.format(currentLocalDate);
         String day = DATE_FORMATTER_DAY.format(currentLocalDate);
 
@@ -157,14 +160,19 @@ public class RaffleActivityPartakeService extends AbstractRaffleActivityPartake 
         }
 
         // 2. 组装订单快照（使用Builder模式简化对象构建，记录订单核心不变信息）
-        return UserRaffleOrderEntity.builder().userId(userId).activityId(activityId)
-                                    .activityName(activityEntity.getActivityName())
-                                    .strategyId(activityEntity.getStrategyId())
-                                    // 临时生成12位纯数字订单号（生产环境注意：需替换为分布式ID生成器（如雪花算法、UUID优化版）
-                                    // 避免高并发下订单号重复，保证订单唯一性）
-                                    .orderId(RandomStringUtils.randomNumeric(12)).orderTime(currentDate)
-                                    // 订单初始状态：创建完成（等待后续抽奖动作消耗订单）
-                                    .orderState(UserRaffleOrderStateVO.CREATE)
-                                    .endDateTime(activityEntity.getEndDateTime()).build();
+        return UserRaffleOrderEntity
+                .builder()
+                .userId(userId)
+                .activityId(activityId)
+                .activityName(activityEntity.getActivityName())
+                .strategyId(activityEntity.getStrategyId())
+                // 临时生成12位纯数字订单号（生产环境注意：需替换为分布式ID生成器（如雪花算法、UUID优化版）
+                // 避免高并发下订单号重复，保证订单唯一性）
+                .orderId(RandomStringUtils.randomNumeric(12))
+                .orderTime(currentDate)
+                // 订单初始状态：创建完成（等待后续抽奖动作消耗订单）
+                .orderState(UserRaffleOrderStateVO.CREATE)
+                .endDateTime(activityEntity.getEndDateTime())
+                .build();
     }
 }

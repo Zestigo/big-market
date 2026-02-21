@@ -348,10 +348,10 @@ public class ActivityRepository implements IActivityRepository {
                 // 1. 总账户乐观锁扣减
                 int totalUpdateCount =
                         raffleActivityAccountDao.updateActivityAccountSubtractionQuota(RaffleActivityAccount
-                        .builder()
-                        .userId(userId)
-                        .activityId(activityId)
-                        .build());
+                                .builder()
+                                .userId(userId)
+                                .activityId(activityId)
+                                .build());
                 if (1 != totalUpdateCount) {
                     status.setRollbackOnly();
                     throw new AppException(ResponseCode.ACCOUNT_QUOTA_ERROR);
@@ -451,7 +451,7 @@ public class ActivityRepository implements IActivityRepository {
                 .strategyId(res.getStrategyId())
                 .orderId(res.getOrderId())
                 .orderTime(res.getOrderTime())
-                .orderState(UserRaffleOrderStateVO.valueOf(res.getOrderState()))
+                .orderState(UserRaffleOrderStateVO.fromCode(res.getOrderState()))
                 .build();
     }
 
@@ -551,10 +551,10 @@ public class ActivityRepository implements IActivityRepository {
         // 1. 查询总账户额度
         RaffleActivityAccount raffleActivityAccount =
                 raffleActivityAccountDao.queryActivityAccountByUserId(RaffleActivityAccount
-                .builder()
-                .activityId(activityId)
-                .userId(userId)
-                .build());
+                        .builder()
+                        .activityId(activityId)
+                        .userId(userId)
+                        .build());
 
         // 如果总账户不存在，直接返回一个初始化的空额度实体
         if (null == raffleActivityAccount) {
@@ -574,17 +574,17 @@ public class ActivityRepository implements IActivityRepository {
         // 2. 查询月、日账户额度
         RaffleActivityAccountMonth raffleActivityAccountMonth =
                 raffleActivityAccountMonthDao.queryActivityAccountMonthByUserId(RaffleActivityAccountMonth
-                .builder()
-                .activityId(activityId)
-                .userId(userId)
-                .build());
+                        .builder()
+                        .activityId(activityId)
+                        .userId(userId)
+                        .build());
 
         RaffleActivityAccountDay raffleActivityAccountDay =
                 raffleActivityAccountDayDao.queryActivityAccountDayByUserId(RaffleActivityAccountDay
-                .builder()
-                .activityId(activityId)
-                .userId(userId)
-                .build());
+                        .builder()
+                        .activityId(activityId)
+                        .userId(userId)
+                        .build());
 
         // 3. 组装并返回领域实体
         return ActivityAccountEntity
@@ -611,10 +611,10 @@ public class ActivityRepository implements IActivityRepository {
         // 1. 查询用户活动账户
         RaffleActivityAccount raffleActivityAccount =
                 raffleActivityAccountDao.queryActivityAccountByUserId(RaffleActivityAccount
-                .builder()
-                .activityId(activityId)
-                .userId(userId)
-                .build());
+                        .builder()
+                        .activityId(activityId)
+                        .userId(userId)
+                        .build());
 
         // 2. 账户不存在则返回参与次数为 0 (防止空指针)
         if (null == raffleActivityAccount) return 0;

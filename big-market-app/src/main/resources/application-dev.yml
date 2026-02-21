@@ -256,7 +256,47 @@ logging:
     org.apache.shardingsphere: info  # 分库分表框架日志级别
   config: classpath:logback-spring.xml  # 日志配置文件路径（Logback）
 
+# ========================= Dubbo 框架配置：负责“服务发现与注册”（通讯录职责） =========================
+dubbo:
+  application:
+    name: big-market  # 应用名称：在 Nacos 服务列表中显示的名称
+    version: 1.0      # 应用版本：用于区分不同版本的服务接口
+    logger: slf4j     # 日志适配：强制 Dubbo 使用 SLF4J，确保日志能被 Logback 统一收集
+  registry:
+    id: nacos-registry # 注册中心 ID：唯一标识该注册中心配置
+    # 【职责：找人】让 Dubbo 插件去 Nacos 登记 IP。注意：必须带 nacos:// 协议头
+    address: nacos://192.168.21.130:8848
+  protocol:
+    name: dubbo       # 通信协议：使用高性能的 Dubbo 协议进行二进制传输
+    port: -1          # 端口配置：-1 表示由系统自动分配空闲端口，避免多实例冲突
+  scan:
+    base-packages: com.c.trigger.api      # 扫描范围：指定哪些包下的接口需要暴露为 Dubbo 服务
 
+# ========================= 自定义 Nacos SDK 配置：负责“动态配置管理”（中央广播站职责） =========================
+nacos:
+  sdk:
+    config:
+      # 【连接地址层】
+      # server-addr: 物理通信入口，直接对接 Nacos 节点或 SLB
+      server-addr: 192.168.21.130:8848
+      # registry: 逻辑注册地址，适配 Dubbo/RPC 习惯，作为物理地址的二重保障
+      registry: 192.168.21.130:8848
+
+      # 【环境隔离层】
+      # namespace: 必须使用 Nacos 控制台生成的 UUID
+      namespace: 5522e941-5541-4512-851e-8711540843e3
+      # group: 默认全局分组，若 @DCCValue 未指定则以此为准
+      group: DEFAULT_GROUP
+
+      # 【核心文件层】
+      # data-id: 应用启动时默认关联的配置文件名
+      data-id: gateway-api-config
+
+      # 【性能治理层】
+      # config-timeout: 网络读取超时，在高并发或跨机房场景下建议保持在 5000ms 以上
+      config-timeout: 5000
+      # max-retries: 容错重试次数，防止瞬时网络抖动导致配置加载失败
+      max-retries: 3
 
 
 # ========================= 数据库配置（单库模式） =========================

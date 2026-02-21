@@ -15,56 +15,47 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
+ * 抽奖责任链 - 权重消耗过滤节点
+ * 业务逻辑：根据用户当前累积的抽奖次数，匹配对应的奖品池档位。
+ *
  * @author cyh
- * @description 抽奖责任链 - 权重消耗过滤节点
- * @details 业务逻辑：根据用户当前累积的积分/权重值（userScore），匹配对应的奖品池档位。
- * 匹配原则：寻找配置中【小于等于】用户当前积分的最大权重值。
- * 场景示例：配置为 "4000:101 5000:102"，若用户积分为 4500：
- * 1. 满足 <= 4500 的集合为 {4000}。
- * 2. 取最大值 4000，最终命中 101 奖品池。
- * @date 2026/01/18
+ * @date 2026/02/21
  */
 @Slf4j
 @Component("rule_weight")
 public class RuleWeightLogicChain extends AbstractLogicChain {
 
+    /* 策略仓储服务 */
     @Resource
     private IStrategyRepository strategyRepository;
 
+    /* 策略调度服务 */
     @Resource
     private IStrategyDispatch strategyDispatch;
 
-    /**
-     * 权重过滤核心逻辑
-     *
-     * @param userId     用户ID
-     * @param strategyId 策略ID
-     * @return 命中权重奖品池则返回奖品ID，否则返回 null 由后续链条处理
-     */
     @Override
     public DefaultChainFactory.StrategyAwardVO logic(String userId, Long strategyId) {
         String ruleModel = ruleModel();
         log.info("抽奖责任链-权重过滤开始 userId: {}, strategyId: {}, ruleModel: {}", userId, strategyId, ruleModel);
 
         // 1. 查询权重规则配置。格式示例："4000:101,102 5000:101,102,103"
-        // 含义：累计抽奖满 4000 次，在 101,102 中抽奖；满 5000 次，在 101,102,103 中抽奖
         String ruleValue = strategyRepository.queryStrategyRuleValue(strategyId, ruleModel);
         if (StringUtils.isBlank(ruleValue)) {
-            log.info("抽奖责任链-权重规则未配置，直接放行流转至下一节点. strategyId: {}", strategyId);
-            return next().logic(userId, strategyId);
+            log.info("抽奖责任链-权重规则未配置，直接放行. strategyId: {}", strategyId);
+            return nextLogic(userId, strategyId);
         }
 
-        // 2. 解析规则配置：将配置字符串转换为有序映射 (Key: 触发阈值次数, Value: 对应奖品列表字符串)
+        // 2. 解析规则配置
         Map<Long, String> ruleValueMap = getAnalyticalValue(ruleValue);
         if (ruleValueMap.isEmpty()) {
             log.warn("抽奖责任链-权重规则解析为空，直接放行. strategyId: {}", strategyId);
-            return next().logic(userId, strategyId);
+            return nextLogic(userId, strategyId);
         }
 
-        // 3. 获取用户在该策略关联活动下的【累计抽奖次数】（作为权重判定的依据）
+        // 3. 获取用户累计抽奖次数
         Integer userRaffleCount = strategyRepository.queryTotalUserRaffleCount(userId, strategyId);
 
-        // 4. 寻找匹配档位：在已配置的权重阈值中，找到用户已达到的最大档位 (Key <= userRaffleCount)
+        // 4. 寻找匹配档位 (寻找配置中 <= 用户当前抽奖次数的最大阈值)
         Long matchedKey = ruleValueMap
                 .keySet()
                 .stream()
@@ -72,8 +63,8 @@ public class RuleWeightLogicChain extends AbstractLogicChain {
                 .max(Long::compare)
                 .orElse(null);
 
-        // 5. 判定匹配结果：若命中权重档位，则执行该等级下的独立随机抽奖，并【截断】责任链后续流程
-        if (null != matchedKey) {
+        // 5. 判定匹配结果：若命中则截断责任链后续流程，直接产出奖品
+        if (matchedKey != null) {
             Integer awardId = strategyDispatch.getRandomAwardId(strategyId, ruleValueMap.get(matchedKey));
             log.info("抽奖责任链-权重匹配成功 userId: {}, strategyId: {}, 命中档位: {}, 产出奖品ID: {}", userId, strategyId, matchedKey,
                     awardId);
@@ -84,16 +75,27 @@ public class RuleWeightLogicChain extends AbstractLogicChain {
                     .build();
         }
 
-        // 6. 边界处理：用户累计抽奖次数未达到任何权重门槛，放行流转至后续节点（如默认随机抽奖节点）
+        // 6. 边界处理：用户抽奖次数未达到任何权重门槛，放行流转至后续节点（如默认抽奖节点）
         log.info("抽奖责任链-权重放行（累计抽奖次数未达标） userId: {}, strategyId: {}, 累计次数: {}", userId, strategyId, userRaffleCount);
+        return nextLogic(userId, strategyId);
+    }
+
+    /**
+     * 封装下一节点逻辑调用
+     * 职责：增加非空校验，防止因责任链配置或装配问题导致 NPE 崩溃。
+     */
+    private DefaultChainFactory.StrategyAwardVO nextLogic(String userId, Long strategyId) {
+        if (next() == null) {
+            // 运行时防御：即使工厂封口失败或数据库缺失 default 配置，此处也仅打印错误而非崩溃
+            log.error("【严重异常】责任链断裂，未发现后续有效节点（请检查策略 {} 是否包含 default 配置）", strategyId);
+            return null;
+        }
         return next().logic(userId, strategyId);
     }
 
     /**
-     * 配置解析工具方法
-     *
-     * @param ruleValue 原始配置字符串，例如 "4000:101,102 5000:103"
-     * @return 解析后的 Map，结构示例：{4000 -> "4000:101,102", 5000 -> "5000:103"}
+     * 权重配置解析工具
+     * 将 "4000:101,102" 格式解析为有序 Map
      */
     private Map<Long, String> getAnalyticalValue(String ruleValue) {
         if (StringUtils.isBlank(ruleValue)) return Collections.emptyMap();
@@ -103,12 +105,8 @@ public class RuleWeightLogicChain extends AbstractLogicChain {
 
         for (String group : ruleValueGroups) {
             if (StringUtils.isBlank(group)) continue;
-
             String[] parts = group.split(Constants.COLON);
-            if (parts.length != 2) {
-                log.error("权重规则格式异常，已忽略该组配置: {}", group);
-                continue;
-            }
+            if (parts.length != 2) continue;
             ruleValueMap.put(Long.parseLong(parts[0]), group);
         }
         return ruleValueMap;

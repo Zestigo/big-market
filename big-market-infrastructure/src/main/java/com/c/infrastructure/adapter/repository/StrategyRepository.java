@@ -198,7 +198,6 @@ public class StrategyRepository implements IStrategyRepository {
 
     /**
      * 查询策略主体实体信息（带缓存）
-     * <p>
      * 返回内容：策略基本描述 + 策略挂载的所有规则模型清单
      *
      * @param strategyId 策略ID

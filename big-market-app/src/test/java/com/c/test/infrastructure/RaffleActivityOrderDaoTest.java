@@ -1,13 +1,11 @@
 package com.c.test.infrastructure;
 
-import com.alibaba.fastjson.JSON;
 import com.c.infrastructure.dao.IRaffleActivityOrderDao;
-import com.c.infrastructure.po.RaffleActivityOrder;
+import com.c.infrastructure.dao.po.RaffleActivityOrder;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.jeasy.random.EasyRandom;
 import org.jeasy.random.EasyRandomParameters;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;

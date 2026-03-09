@@ -27,6 +27,7 @@ import com.c.domain.strategy.service.IRaffleStrategy;
 import com.c.domain.strategy.service.armory.IStrategyArmory;
 import com.c.types.annotations.DCCConfiguration;
 import com.c.types.annotations.DCCValue;
+import com.c.types.annotations.RateLimiterAccessInterceptor;
 import com.c.types.enums.ResponseCode;
 import com.c.types.exception.AppException;
 import com.c.types.model.Response;
@@ -128,43 +129,44 @@ public class RaffleActivityController implements IRaffleActivityService {
 
     /**
      * 执行用户抽奖接口
-     * 流程：参数校验 -> 参与活动(下单) -> 执行策略抽奖 -> 记录中奖结果 -> 返回结果。
+     * 流程：参数校验 -> 降级判定 -> 参与活动(扣额度/下单) -> 执行策略抽奖 -> 记录中奖结果 -> 返回结果。
      *
      * @param request 抽奖请求 DTO，包含用户 ID 和活动 ID
-     * @return Response<ActivityDrawResponseDTO> 中奖结果（奖品 ID、标题、排序等）
+     * @return Response<ActivityDrawResponseDTO> 统一响应对象，包含中奖奖品详情
      */
     @Override
     @PostMapping("draw")
+    @RateLimiterAccessInterceptor(key = "userId", fallbackMethod = "drawRateLimiterError", permitsPerSecond = 1.0d,
+            blacklistCount = 1)
     public Response<ActivityDrawResponseDTO> draw(@RequestBody ActivityDrawRequestDTO request) {
-        /* 1. 定义局部变量，用于安全日志记录及异常处理反馈 */
+        /* 1. 定义局部上下文变量，用于日志追踪 */
         String userId = "unknown";
         Long activityId = null;
 
         try {
-            // 2. 严谨的入参校验：判定 request 对象及内部属性合法性
+            // 2. 入参合法性校验
             if (null == request || StringUtils.isBlank(request.getUserId()) || null == request.getActivityId()) {
                 log.error("抽奖请求参数非法: {}", request);
                 throw new AppException(ResponseCode.ILLEGAL_PARAMETER);
             }
 
-            // 3. 变量赋值（确保后续 catch 块能捕获到具体用户信息）
+            // 3. 赋值上下文
             userId = request.getUserId();
             activityId = request.getActivityId();
 
-            // 4. 【核心设置点】Nacos 动态降级判定
-            // 逻辑：放在此处可确保日志记录是谁触发了降级，且在执行重业务（DB操作）前进行拦截
+            // 4. 业务降级开关判定：基于 Nacos 动态配置
             if (!"open".equals(degradeSwitch)) {
-                log.warn("抽奖接口已触发 Nacos 动态降级拦截，userId:{} activityId:{}", userId, activityId);
+                log.warn("抽奖接口已触发动态降级拦截，userId:{} activityId:{}", userId, activityId);
                 return Response.fail(ResponseCode.DEGRADE_SWITCH);
             }
 
             log.info("抽奖行为触发，userId:{} activityId:{}", userId, activityId);
 
-            // 5. 参与活动：扣减额度并创建用户抽奖参与记录订单
+            // 5. 参与活动：生成活动参与订单，锁定用户额度
             UserRaffleOrderEntity orderEntity = raffleActivityPartakeService.createOrder(userId, activityId);
             log.info("用户参与活动成功，userId:{} activityId:{} orderId:{}", userId, activityId, orderEntity.getOrderId());
 
-            // 6. 执行抽奖决策：基于策略 ID 和用户上下文计算中奖结果
+            // 6. 执行抽奖策略：计算随机结果
             RaffleAwardEntity raffleAwardEntity = raffleStrategy.performRaffle(RaffleFactorEntity
                     .builder()
                     .userId(userId)
@@ -172,7 +174,7 @@ public class RaffleActivityController implements IRaffleActivityService {
                     .endDateTime(orderEntity.getEndDateTime())
                     .build());
 
-            // 7. 结果持久化：写入用户中奖记录，等待后续发奖
+            // 7. 结果持久化：记录用户中奖信息到数据库
             UserAwardRecordEntity userAwardRecord = UserAwardRecordEntity
                     .builder()
                     .userId(userId)
@@ -187,7 +189,7 @@ public class RaffleActivityController implements IRaffleActivityService {
                     .build();
             awardService.saveUserAwardRecord(userAwardRecord);
 
-            // 8. 组装响应数据 DTO
+            // 8. 封装并返回 DTO
             ActivityDrawResponseDTO responseDTO = ActivityDrawResponseDTO
                     .builder()
                     .awardId(raffleAwardEntity.getAwardId())
@@ -201,14 +203,46 @@ public class RaffleActivityController implements IRaffleActivityService {
             return Response.success(responseDTO);
 
         } catch (AppException e) {
-            // 业务异常捕获：记录错误码和错误描述
+            /* 业务已知异常捕获 */
             log.error("抽奖业务异常，userId:{} activityId:{} code:{} info:{}", userId, activityId, e.getCode(), e.getInfo());
             return Response.fail(e.getCode(), e.getInfo());
         } catch (Exception e) {
-            // 系统未知异常捕获：保证接口不直接崩溃，返回通用错误
+            /* 系统级未知异常捕获 */
             log.error("抽奖系统未知错误，userId:{} activityId:{}", userId, activityId, e);
             return Response.fail(ResponseCode.UN_ERROR);
         }
+    }
+
+    /**
+     * 限流降级回调方法
+     * 逻辑：当 AOP 识别到用户请求频率超过 permitsPerSecond 或处于黑名单时调用
+     *
+     * @param request 原始抽奖请求对象
+     * @return Response 包含限流错误码的响应
+     */
+    public Response<ActivityDrawResponseDTO> drawRateLimiterError(@RequestBody ActivityDrawRequestDTO request) {
+        log.info("活动抽奖限流触发，userId:{} activityId:{}", request.getUserId(), request.getActivityId());
+        return Response
+                .<ActivityDrawResponseDTO>builder()
+                .code(ResponseCode.RATE_LIMITER.getCode())
+                .info(ResponseCode.RATE_LIMITER.getInfo())
+                .build();
+    }
+
+    /**
+     * 熔断降级回调方法
+     * 逻辑：当系统负载过高，触发熔断器（如 Hystrix/Sentinel）时调用
+     *
+     * @param request 原始抽奖请求对象
+     * @return Response 包含熔断错误码的响应
+     */
+    public Response<ActivityDrawResponseDTO> drawHystrixError(@RequestBody ActivityDrawRequestDTO request) {
+        log.info("活动抽奖熔断触发，userId:{} activityId:{}", request.getUserId(), request.getActivityId());
+        return Response
+                .<ActivityDrawResponseDTO>builder()
+                .code(ResponseCode.HYSTRIX.getCode())
+                .info(ResponseCode.HYSTRIX.getInfo())
+                .build();
     }
 
     @Override

@@ -2,14 +2,13 @@ package com.c.test.infrastructure;
 
 import com.alibaba.fastjson2.JSON;
 import com.c.infrastructure.dao.IRaffleActivityDao;
-import com.c.infrastructure.po.RaffleActivity;
+import com.c.infrastructure.dao.po.RaffleActivity;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.junit4.SpringRunner;
-import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
 

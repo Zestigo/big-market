@@ -124,8 +124,7 @@ CREATE TABLE `raffle_activity_order_000`
     UNIQUE KEY `uk_out_business_no` (`user_id`, `out_business_no`), -- 分片键+外部单号联合幂等
     KEY               `idx_user_id_activity_id` (`user_id`, `activity_id`, `state`),
     KEY               `idx_create_time` (`create_time`)             -- 方便对账查询
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='抽奖活动流水单';
--- 2. 使用 LIKE 极速克隆后续分表，严格保持索引与结构对齐
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='抽奖活动流水单';-- 2. 使用 LIKE 极速克隆后续分表，严格保持索引与结构对齐
 DROP TABLE IF EXISTS `raffle_activity_order_001`;
 CREATE TABLE `raffle_activity_order_001` LIKE `raffle_activity_order_000`;
 
@@ -145,7 +144,7 @@ DROP TABLE IF EXISTS `user_award_record_000`;
 CREATE TABLE `user_award_record_000`
 (
     `id`          int(11) unsigned NOT NULL AUTO_INCREMENT COMMENT '自增ID',
-    `user_id`     varchar(32)  NOT NULL COMMENT '用户ID',
+    `user_id`     varchar(32) NOT NULL COMMENT '用户ID',
     `activity_id` bigint(12) NOT NULL COMMENT '活动ID',
     `strategy_id` bigint(8) NOT NULL COMMENT '抽奖策略ID',
     `order_id`    varchar(12)  NOT NULL COMMENT '抽奖订单ID【作为幂等使用】',

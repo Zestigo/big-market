@@ -1,8 +1,7 @@
 package com.c.infrastructure.dao;
 
-import com.c.infrastructure.po.RuleTreeNode;
+import com.c.infrastructure.dao.po.RuleTreeNode;
 import org.apache.ibatis.annotations.Mapper;
-import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
 

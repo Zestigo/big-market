@@ -11,9 +11,9 @@ import com.c.infrastructure.dao.IDailyBehaviorRebateDao;
 import com.c.infrastructure.dao.ITaskDao;
 import com.c.infrastructure.dao.IUserBehaviorRebateOrderDao;
 import com.c.infrastructure.event.EventPublisher;
-import com.c.infrastructure.po.DailyBehaviorRebate;
-import com.c.infrastructure.po.Task;
-import com.c.infrastructure.po.UserBehaviorRebateOrder;
+import com.c.infrastructure.dao.po.DailyBehaviorRebate;
+import com.c.infrastructure.dao.po.Task;
+import com.c.infrastructure.dao.po.UserBehaviorRebateOrder;
 import com.c.types.enums.ResponseCode;
 import com.c.types.exception.AppException;
 import lombok.RequiredArgsConstructor;
@@ -22,7 +22,6 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionTemplate;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 

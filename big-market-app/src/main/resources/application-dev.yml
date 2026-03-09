@@ -72,6 +72,12 @@ spring:
         exchange: credit_adjust_success_exchange
         routing-key: credit_adjust_success_routing_key
         queue: credit_adjust_success_queue
+  elasticsearch:
+    datasource:
+      # Elasticsearch 官方 SQL JDBC 驱动，支持通过 SQL 语法查询 ES 数据
+      driverClassName: org.elasticsearch.xpack.sql.jdbc.EsDriver
+      # 连接地址。格式：jdbc:es://<http/https>://<host>:<port>
+      url: jdbc:es://http://192.168.21.130:9200
   # ========================= 分库分表（ShardingSphere）配置 =========================
   shardingsphere:
     # 1. 数据源配置

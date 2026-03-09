@@ -1,6 +1,6 @@
 package com.c.infrastructure.dao;
 
-import com.c.infrastructure.po.UserCreditAccount;
+import com.c.infrastructure.dao.po.UserCreditAccount;
 import org.apache.ibatis.annotations.Mapper;
 
 /**

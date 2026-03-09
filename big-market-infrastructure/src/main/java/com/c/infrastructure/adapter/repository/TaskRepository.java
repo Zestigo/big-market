@@ -4,7 +4,7 @@ import com.c.domain.task.model.entity.TaskEntity;
 import com.c.domain.task.repository.ITaskRepository;
 import com.c.infrastructure.dao.ITaskDao;
 import com.c.infrastructure.event.EventPublisher;
-import com.c.infrastructure.po.Task;
+import com.c.infrastructure.dao.po.Task;
 import org.springframework.stereotype.Repository;
 
 import javax.annotation.Resource;

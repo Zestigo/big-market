@@ -1,6 +1,5 @@
 package com.c.infrastructure.redis;
 
-import com.c.domain.activity.model.entity.ActivitySkuEntity;
 import org.redisson.api.*;
 import org.springframework.stereotype.Service;
 

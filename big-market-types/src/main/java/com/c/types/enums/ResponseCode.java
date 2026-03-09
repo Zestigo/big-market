@@ -20,9 +20,10 @@ public enum ResponseCode {
     INDEX_DUP("0003", "唯一索引冲突"),
 
     /* --- 系统治理/DCC 模块 --- */
-    // 逻辑：对应 Nacos 动态配置中心的降级拦截
+    // 对应 Nacos 动态配置中心或 AOP 拦截器的降级与限流
     DEGRADE_SWITCH("ERR_SYS_001", "当前抽奖活动火爆，系统已触发降级保护，请稍后再试"),
     RATE_LIMITER("ERR_SYS_002", "访问过于频繁，系统限流中"),
+    HYSTRIX("ERR_SYS_003", "系统繁忙，访问触发熔断拦截"),
 
     /* --- 策略与装配模块 --- */
     STRATEGY_RULE_WEIGHT_IS_NULL("ERR_BIZ_001", "业务异常，策略规则中 rule_weight 权重规则已适用但未配置"),
@@ -51,10 +52,10 @@ public enum ResponseCode {
     CREDIT_ORDER_ALREADY_EXISTS("ERR_BIZ_014", "交易单号已存在，请勿重复提交"),
     ;
 
-    /* 状态码 */
+    /* 状态码：用于前端或服务间判定逻辑路径 */
     private final String code;
 
-    /* 状态信息 */
+    /* 状态信息：用于展示给用户的文案说明 */
     private final String info;
 
 }

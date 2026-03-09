@@ -1,6 +1,6 @@
 package com.c.infrastructure.dao;
 
-import com.c.infrastructure.po.UserAwardRecord;
+import com.c.infrastructure.dao.po.UserAwardRecord;
 import org.apache.ibatis.annotations.Mapper;
 
 /**

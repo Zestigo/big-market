@@ -1,6 +1,6 @@
 package com.c.infrastructure.dao;
 
-import com.c.infrastructure.po.UserCreditOrder;
+import com.c.infrastructure.dao.po.UserCreditOrder;
 import org.apache.ibatis.annotations.Mapper;
 
 /**

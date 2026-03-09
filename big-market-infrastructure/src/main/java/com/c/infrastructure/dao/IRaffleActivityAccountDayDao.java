@@ -1,6 +1,6 @@
 package com.c.infrastructure.dao;
 
-import com.c.infrastructure.po.RaffleActivityAccountDay;
+import com.c.infrastructure.dao.po.RaffleActivityAccountDay;
 import org.apache.ibatis.annotations.Mapper;
 
 /**

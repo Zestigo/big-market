@@ -1,0 +1,1 @@
+curl -X DELETE "192.168.21.130:9200/xfg_dev_tech.user_order"

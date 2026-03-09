@@ -1,6 +1,6 @@
 package com.c.infrastructure.dao;
 
-import com.c.infrastructure.po.DailyBehaviorRebate;
+import com.c.infrastructure.dao.po.DailyBehaviorRebate;
 import org.apache.ibatis.annotations.Mapper;
 
 import java.util.List;

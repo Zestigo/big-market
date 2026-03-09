@@ -1,6 +1,6 @@
 package com.c.infrastructure.dao;
 
-import com.c.infrastructure.po.RaffleActivityCount;
+import com.c.infrastructure.dao.po.RaffleActivityCount;
 import org.apache.ibatis.annotations.Mapper;
 
 /**

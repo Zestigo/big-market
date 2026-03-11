@@ -56,7 +56,7 @@ import java.util.List;
 @RestController
 @CrossOrigin("${app.config.cross-origin}")
 @RequestMapping("/api/${app.config.api-version}/raffle/activity/")
-@DCCConfiguration(prefix = "raffle.activity", dataId = "raffle-config.yaml")
+@DCCConfiguration(dataId = "raffle-config.yaml", prefix = "raffle.activity")
 @DubboService(version = "1.0")
 public class RaffleActivityController implements IRaffleActivityService {
 

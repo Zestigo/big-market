@@ -39,55 +39,61 @@ public class SendMessageTaskJob {
      */
     @XxlJob("sendMessageTaskJobHandler")
     public void exec() throws InterruptedException {
-        // 1. 分布式锁抢占：确保多节点部署时，只有一个节点发起扫描
-        RLock lock = redissonClient.getLock("big-market-sendMessageTaskJob");
-        boolean isLocked = false;
+        RLock taskJobLock = redissonClient.getLock("big-market-sendMessageTaskJob");
+        boolean isJobLocked = false;
+        List<TaskEntity> taskEntities = null;
+
         try {
-            // 尝试加锁最多等待 3s，加锁成功后 0s（不设自动释放，靠 finally 释放）
-            isLocked = lock.tryLock(3, 0, TimeUnit.SECONDS);
-            if (!isLocked) {
+            // 1. 抢「任务扫描锁」：仅保障单节点扫描
+            isJobLocked = taskJobLock.tryLock(3, 180, TimeUnit.SECONDS);
+            if (!isJobLocked) {
                 log.warn(">>>>>> XXL-JOB 消息补偿任务抢占锁失败，本次跳过");
                 return;
             }
 
             log.info(">>>>>> XXL-JOB 消息补偿任务开始执行");
-
-            // 2. 扫描待投递任务（ShardingSphere 广播扫描全量分片库表）
-            List<TaskEntity> taskEntities = taskService.queryNoSendMessageTaskList();
+            // 2. 扫描待投递任务：仅扫描阶段持有锁
+            taskEntities = taskService.queryNoSendMessageTaskList();
             if (taskEntities == null || taskEntities.isEmpty()) {
                 log.info(">>>>>> 本次扫描无待补偿任务");
                 return;
-            }
-
-            // 3. 遍历任务，交由线程池处理
-            for (TaskEntity taskEntity : taskEntities) {
-                executor.execute(() -> {
-                    try {
-                        // 3.1 驱动领域服务外发消息至 MQ
-                        taskService.sendMessage(taskEntity);
-
-                        // 3.2 更新状态为成功（回传 userId 确保分片精准路由）
-                        taskService.updateTaskSendMessageCompleted(taskEntity.getUserId(), taskEntity.getMessageId());
-
-                        log.info("定时任务补偿成功 | userId: {} | messageId: {}", taskEntity.getUserId(),
-                                taskEntity.getMessageId());
-                    } catch (Exception e) {
-                        log.error("定时任务补偿失败 | userId: {} | messageId: {}", taskEntity.getUserId(),
-                                taskEntity.getMessageId(), e);
-
-                        // 3.3 状态置回失败状态，等待重试窗口
-                        taskService.updateTaskSendMessageFail(taskEntity.getUserId(), taskEntity.getMessageId());
-                    }
-                });
             }
         } catch (Exception e) {
             log.error("XXL-JOB 分布式定时任务扫描异常", e);
             throw e;
         } finally {
-            // 4. 释放分布式锁
-            if (isLocked) {
-                lock.unlock();
+            // 3. 扫描完成立即释放「任务级大锁」，不阻塞后续处理
+            if (isJobLocked) {
+                taskJobLock.unlock();
             }
+        }
+
+        // 4. 异步处理任务：给每个任务加「细粒度锁」，避免重复处理
+        for (TaskEntity taskEntity : taskEntities) {
+            executor.execute(() -> {
+                // 任务级细粒度锁：key = 任务ID/消息ID，避免重复处理
+                RLock taskLock = redissonClient.getLock("big-market-message-compensate-" + taskEntity.getMessageId());
+                try {
+                    // 尝试加锁，5s超时，自动释放1分钟
+                    if (!taskLock.tryLock(5, 60, TimeUnit.SECONDS)) {
+                        log.warn("任务已被其他线程处理 | messageId: {}", taskEntity.getMessageId());
+                        return;
+                    }
+                    // 执行消息投递+状态更新
+                    taskService.sendMessage(taskEntity);
+                    taskService.updateTaskSendMessageCompleted(taskEntity.getUserId(), taskEntity.getMessageId());
+                    log.info("定时任务补偿成功 | userId: {} | messageId: {}", taskEntity.getUserId(),
+                            taskEntity.getMessageId());
+                } catch (Exception e) {
+                    log.error("定时任务补偿失败 | userId: {} | messageId: {}", taskEntity.getUserId(),
+                            taskEntity.getMessageId(), e);
+                    taskService.updateTaskSendMessageFail(taskEntity.getUserId(), taskEntity.getMessageId());
+                } finally {
+                    if (taskLock.isHeldByCurrentThread()) {
+                        taskLock.unlock();
+                    }
+                }
+            });
         }
     }
 }

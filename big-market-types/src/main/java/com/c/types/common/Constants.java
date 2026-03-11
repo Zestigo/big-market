@@ -14,8 +14,13 @@ public class Constants {
         public static String STRATEGY_KEY = "big_market_strategy_key_";
         public static String STRATEGY_AWARD_KEY = "big_market_strategy_award_key_";
         public static String STRATEGY_AWARD_LIST_KEY = "big_market_strategy_award_list_key_";
-        public static String STRATEGY_RATE_TABLE_KEY = "big_market_strategy_rate_table_key_";
-        public static String STRATEGY_RATE_RANGE_KEY = "big_market_strategy_rate_range_key_";
+        // 策略概率范围（分母）- 两者通用
+        public static String STRATEGY_RATE_RANGE_KEY = "strategy_rate_range_key_";
+        // O(1) 算法：使用 Hash 存储，后缀为 _O1
+        public static String STRATEGY_RATE_TABLE_O1_KEY = "strategy_rate_table_o1_key_";
+        public static String STRATEGY_ARMORY_ALGORITHM_KEY = "strategy_armory_algorithm_key_";
+        // O(LogN) 算法：使用 String 序列化存储，后缀为 _OLN
+        public static String STRATEGY_RATE_TABLE_OLN_KEY = "strategy_rate_table_oln_key_";
         public static String RULE_TREE_VO_KEY = "rule_tree_vo_key_";
         public static String STRATEGY_AWARD_COUNT_KEY = "strategy_award_count_key_";
         public static String STRATEGY_RULE_WEIGHT_KEY = "strategy_rule_weight_key_";

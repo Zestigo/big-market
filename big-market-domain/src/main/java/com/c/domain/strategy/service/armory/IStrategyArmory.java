@@ -1,25 +1,37 @@
 package com.c.domain.strategy.service.armory;
 
 /**
- * 策略装配库接口（策略武器库）
- * * 职责：
- * 负责将数据库中的抽奖策略（奖品、概率、规则等）进行预热和转换。
- * 通过提前计算概率查找表并缓存至持久化层（如 Redis），确保抽奖调度时具备极高的响应性能。
+ * 策略装配工厂接口（Strategy Armory Service）
+ * 核心职责：
+ * 负责抽奖策略的“计算预热”与“数据装配”。将数据库中静态的抽奖规则（概率、权重、奖品）
+ * 转化为内存态的高性能查找表，并同步至 Redis 分布式缓存中。
+ * 设计思想：
+ * 1. 空间换时间：通过生成 O(1) 复杂度的随机索引查找表，消除抽奖时的实时概率计算开销。
+ * 2. 动静分离：将高频访问的策略数据从数据库剥离至缓存，保障抽奖调度的高吞吐量。
+ *
+ * @author cyh
  */
 public interface IStrategyArmory {
 
     /**
-     * 装配抽奖策略
-     * * 核心逻辑：
-     * 1. 加载策略关联的奖品配置及概率。
-     * 2. 计算并生成高性能随机查找表（空间换时间算法）。
-     * 3. 预热奖品库存至缓存。
-     * 4. 存储权重规则对应的子奖池映射。
+     * 核心装配：基于策略 ID 进行全量装配
+     * 执行流程：
+     * 1. 概率计算：基于奖品概率分布，构建随机索引查找表（通过 Shuffle 算法打散）。
+     * 2. 缓存预热：将查找表、奖品元数据、规则权重等关键信息存入分布式缓存。
+     * 3. 资源初始化：同步奖品库存至 Redis 计数器，为秒杀级抽奖场景做准备。
      *
-     * @param strategyId 策略ID（对应 strategy 实体主键）
-     * @return 装配结果（true: 装配成功；false: 装配失败，可能由于配置缺失或存储异常）
+     * @param strategyId 策略唯一标识（抽奖配置的核心索引）
+     * @return true: 装配成功，策略就绪；false: 配置异常或基础设施（Redis）连接失败
      */
     boolean assembleLotteryStrategy(Long strategyId);
 
+    /**
+     * 关联装配：基于活动 ID 触发关联策略的装配
+     * * 常用于活动发布或审核通过后的自动化预热场景。
+     * 内部逻辑通常先查询活动关联的 strategyId，随后调用相应的装配核心方法。
+     *
+     * @param activityId 活动配置 ID
+     * @return 整体装配链路是否成功执行
+     */
     boolean assembleLotteryStrategyByActivityId(Long activityId);
 }

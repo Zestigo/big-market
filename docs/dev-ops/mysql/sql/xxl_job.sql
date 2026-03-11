@@ -37,17 +37,6 @@ CREATE TABLE `xxl_job_group` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-LOCK TABLES `xxl_job_group` WRITE;
-/*!40000 ALTER TABLE `xxl_job_group` DISABLE KEYS */;
-
-INSERT INTO `xxl_job_group` (`id`, `app_name`, `title`, `address_type`, `address_list`, `update_time`)
-VALUES
-	(1,'big-market-job','大营销调度任务',0,NULL,'2024-08-10 09:18:32');
-
-/*!40000 ALTER TABLE `xxl_job_group` ENABLE KEYS */;
-UNLOCK TABLES;
-
-
 # 转储表 xxl_job_info
 # ------------------------------------------------------------
 
@@ -80,19 +69,6 @@ CREATE TABLE `xxl_job_info` (
   `trigger_next_time` bigint NOT NULL DEFAULT '0' COMMENT '下次调度时间',
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
-LOCK TABLES `xxl_job_info` WRITE;
-/*!40000 ALTER TABLE `xxl_job_info` DISABLE KEYS */;
-
-INSERT INTO `xxl_job_info` (`id`, `job_group`, `job_desc`, `add_time`, `update_time`, `author`, `alarm_email`, `schedule_type`, `schedule_conf`, `misfire_strategy`, `executor_route_strategy`, `executor_handler`, `executor_param`, `executor_block_strategy`, `executor_timeout`, `executor_fail_retry_count`, `glue_type`, `glue_source`, `glue_remark`, `glue_updatetime`, `child_jobid`, `trigger_status`, `trigger_last_time`, `trigger_next_time`)
-VALUES
-	(1,1,'更新奖品库存任务','2018-11-03 22:21:31','2024-08-10 09:17:47','XXL','','CRON','0/5 * * * * ?','DO_NOTHING','FIRST','updateAwardStockJob','','SERIAL_EXECUTION',0,0,'BEAN','','GLUE代码初始化','2018-11-03 22:21:31','',0,0,0),
-	(2,1,'发送MQ消息任务队列(DB1)','2024-08-10 09:09:27','2024-08-10 09:15:44','XXL','','CRON','0/5 * * * * ?','DO_NOTHING','FIRST','SendMessageTaskJob_DB1','','SERIAL_EXECUTION',0,0,'BEAN','','GLUE代码初始化','2024-08-10 09:09:27','',1,1723252715000,1723252720000),
-	(3,1,'发送MQ消息任务队列(DB2)','2024-08-10 09:09:38','2024-08-10 09:15:40','XXL','','CRON','0/5 * * * * ?','DO_NOTHING','FIRST','SendMessageTaskJob_DB2','','SERIAL_EXECUTION',0,0,'BEAN','','GLUE代码初始化','2024-08-10 09:09:38','',1,1723252715000,1723252720000),
-	(4,1,'更新活动sku库存任务','2024-08-10 09:10:09','2024-08-10 09:15:00','XXL','','CRON','0/5 * * * * ?','DO_NOTHING','FIRST','UpdateActivitySkuStockJob','','SERIAL_EXECUTION',0,0,'BEAN','','GLUE代码初始化','2024-08-10 09:10:09','',1,1723252715000,1723252720000);
-
-/*!40000 ALTER TABLE `xxl_job_info` ENABLE KEYS */;
-UNLOCK TABLES;
 
 
 # 转储表 xxl_job_lock
@@ -142,20 +118,6 @@ CREATE TABLE `xxl_job_log` (
   KEY `I_handle_code` (`handle_code`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-LOCK TABLES `xxl_job_log` WRITE;
-/*!40000 ALTER TABLE `xxl_job_log` DISABLE KEYS */;
-
-INSERT INTO `xxl_job_log` (`id`, `job_group`, `job_id`, `executor_address`, `executor_handler`, `executor_param`, `executor_sharding_param`, `executor_fail_retry_count`, `trigger_time`, `trigger_code`, `trigger_msg`, `handle_time`, `handle_code`, `handle_msg`, `alarm_status`)
-VALUES
-	(111,1,4,NULL,'UpdateActivitySkuStockJob','',NULL,0,'2024-08-10 09:18:30',500,'任务触发类型：Cron触发<br>调度机器：172.19.0.12<br>执行器-注册方式：自动注册<br>执行器-地址列表：null<br>路由策略：第一个<br>阻塞处理策略：单机串行<br>任务超时时间：0<br>失败重试次数：0<br><br><span style=\"color:#00c0ef;\" > >>>>>>>>>>>触发调度<<<<<<<<<<< </span><br>调度失败：执行器地址为空<br><br>',NULL,0,NULL,0),
-	(112,1,2,NULL,'SendMessageTaskJob_DB1','',NULL,0,'2024-08-10 09:18:35',500,'任务触发类型：Cron触发<br>调度机器：172.19.0.12<br>执行器-注册方式：自动注册<br>执行器-地址列表：null<br>路由策略：第一个<br>阻塞处理策略：单机串行<br>任务超时时间：0<br>失败重试次数：0<br><br><span style=\"color:#00c0ef;\" > >>>>>>>>>>>触发调度<<<<<<<<<<< </span><br>调度失败：执行器地址为空<br><br>',NULL,0,NULL,0),
-	(113,1,4,NULL,'UpdateActivitySkuStockJob','',NULL,0,'2024-08-10 09:18:35',500,'任务触发类型：Cron触发<br>调度机器：172.19.0.12<br>执行器-注册方式：自动注册<br>执行器-地址列表：null<br>路由策略：第一个<br>阻塞处理策略：单机串行<br>任务超时时间：0<br>失败重试次数：0<br><br><span style=\"color:#00c0ef;\" > >>>>>>>>>>>触发调度<<<<<<<<<<< </span><br>调度失败：执行器地址为空<br><br>',NULL,0,NULL,0),
-	(114,1,3,NULL,'SendMessageTaskJob_DB2','',NULL,0,'2024-08-10 09:18:35',500,'任务触发类型：Cron触发<br>调度机器：172.19.0.12<br>执行器-注册方式：自动注册<br>执行器-地址列表：null<br>路由策略：第一个<br>阻塞处理策略：单机串行<br>任务超时时间：0<br>失败重试次数：0<br><br><span style=\"color:#00c0ef;\" > >>>>>>>>>>>触发调度<<<<<<<<<<< </span><br>调度失败：执行器地址为空<br><br>',NULL,0,NULL,0);
-
-/*!40000 ALTER TABLE `xxl_job_log` ENABLE KEYS */;
-UNLOCK TABLES;
-
-
 # 转储表 xxl_job_log_report
 # ------------------------------------------------------------
 
@@ -171,19 +133,6 @@ CREATE TABLE `xxl_job_log_report` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `i_trigger_day` (`trigger_day`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
-LOCK TABLES `xxl_job_log_report` WRITE;
-/*!40000 ALTER TABLE `xxl_job_log_report` DISABLE KEYS */;
-
-INSERT INTO `xxl_job_log_report` (`id`, `trigger_day`, `running_count`, `suc_count`, `fail_count`, `update_time`)
-VALUES
-	(1,'2024-08-10 00:00:00',0,45,39,NULL),
-	(2,'2024-08-09 00:00:00',0,0,0,NULL),
-	(3,'2024-08-08 00:00:00',0,0,0,NULL);
-
-/*!40000 ALTER TABLE `xxl_job_log_report` ENABLE KEYS */;
-UNLOCK TABLES;
-
 
 # 转储表 xxl_job_logglue
 # ------------------------------------------------------------

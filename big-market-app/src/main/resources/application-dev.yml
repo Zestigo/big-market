@@ -1,61 +1,45 @@
 # ========================= 服务器基础配置 =========================
 server:
-  port: 8091                # 应用服务监听端口
+  port: 8091
   tomcat:
     threads:
-      max: 200              # Tomcat最大工作线程数（处理请求的线程上限）
-      min-spare: 50         # Tomcat最小空闲线程数（保持活跃的基础线程数，避免频繁创建销毁）
-    accept-count: 10        # Tomcat请求队列长度（线程池满时，临时排队的请求数）
+      max: 200              # 开发环境Tomcat最大线程数
+      min-spare: 50         # 开发环境最小空闲线程数
+    accept-count: 10        # 开发环境请求队列长度
 
 # ========================= 应用自定义配置 =========================
 app:
   config:
-    api-version: v1         # 接口版本号（用于接口版本管理）
-    cross-origin: '*'       # 跨域配置（允许所有域名跨域访问，生产环境建议指定具体域名）
+    api-version: v1         # 接口版本号
+    cross-origin: '*'       # 开发环境允许所有域名跨域
 
 # ========================= 自定义线程池配置 =========================
 thread:
   pool:
     executor:
       config:
-        core-pool-size: 20          # 核心线程数（线程池常驻线程数）
-        max-pool-size: 50           # 最大线程数（线程池允许创建的最大线程数）
-        keep-alive-time: 5000       # 非核心线程空闲存活时间（单位：毫秒）
-        block-queue-size: 5000      # 任务阻塞队列容量（核心线程满时，任务排队的最大数量）
-        policy: CallerRunsPolicy   # 拒绝策略（队列满且线程数达上限时，由调用方线程执行任务）
+        core-pool-size: 20          # 核心线程数
+        max-pool-size: 50           # 最大线程数
+        keep-alive-time: 5000       # 非核心线程空闲时间(ms)
+        block-queue-size: 5000      # 任务队列容量
+        policy: CallerRunsPolicy   # 拒绝策略：调用方执行
 
 # ========================= Spring核心配置 =========================
 spring:
   main:
-    # 【Bean覆盖开关】
-    # 当项目中出现两个同名的 Bean 时（比如引入了两个不同的配置包，都定义了名为 redisClient 的 Bean），
-    # 设置为 true 会允许后加载的 Bean 覆盖先加载的。在复杂的 Spring Cloud 或多模块项目中很有用。
-    allow-bean-definition-overriding: true
+    allow-bean-definition-overriding: true  # 允许Bean覆盖
 
-  # ========================= RabbitMQ 消息队列配置 =========================
+  # ========================= RabbitMQ 配置（修复地址格式） =========================
   rabbitmq:
-    # RabbitMQ 服务端连接地址，集群环境下可配置多个地址（逗号分隔）
-    addresses: 192.168.21.130
-    # 默认通信端口（AMQP 协议端口）
-    port: 5672
-    # 认证账号和密码
+    addresses: 192.168.21.130:5672  # 正确写法：地址+端口，无需单独写port
     username: admin
     password: admin
-    # 开启发布确认，配合 EventPublisher 里的 CorrelationData
     publisher-confirm-type: correlated
     publisher-returns: true
     listener:
       simple:
-        # 【限流配置：预取数量】
-        # 重要性能参数：告诉 MQ 每次只推 1 条消息给当前消费者。
-        # 优势：只有当这一条消息消费完成并回执（Ack）后，MQ 才会发下一条。
-        # 场景：防止在“突发大流量”时，由于处理过慢导致大量消息积压在某个消费者内存中，造成 OOM（内存溢出）。
-        prefetch: 1
-
-    # 【自定义业务主题配置】
-    # 这里的配置会被 @Value("${spring.rabbitmq.topic.activity_sku_stock}") 引用
+        prefetch: 1                  # 开发环境预取数=1（便于调试）
     topic:
-      # 给业务代码读的“变量”，我们把它设为交换机名
       activity_sku_stock:
         exchange: activity_sku_stock_exchange
         routing-key: activity_sku_stock_routing_key
@@ -73,50 +57,42 @@ spring:
         routing-key: credit_adjust_success_routing_key
         queue: credit_adjust_success_queue
 
+  # ========================= Elasticsearch 配置 =========================
   elasticsearch:
     datasource:
-      # Elasticsearch 官方 SQL JDBC 驱动，支持通过 SQL 语法查询 ES 数据
-  #      driverClassName: org.elasticsearch.xpack.sql.jdbc.EsDriver
-  #      # 连接地址。格式：jdbc:es://<http/https>://<host>:<port>
-  #      url: jdbc:es://http://192.168.21.130:9200
-  #
-  #  # ========================= 分库分表（ShardingSphere）配置 =========================
+      driverClassName: org.elasticsearch.xpack.sql.jdbc.EsDriver
+      url: jdbc:es://http://192.168.21.130:9200
+
+  # ========================= 分库分表（ShardingSphere）配置 =========================
   shardingsphere:
-    # 1. 数据源配置
     datasource:
       names: ds_0,ds_1,big_market
-      # 分库01 - 存储用户私有数据（订单、账户、任务等）
+      # 分库01 - 用户私有数据（修复时区为上海）
       ds_0:
         type: com.zaxxer.hikari.HikariDataSource
         driver-class-name: com.mysql.cj.jdbc.Driver
         url: jdbc:mysql://192.168.21.130:13306/big_market_01?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false
         username: root
-        password: 123456
-      # 分库02 - 存储用户私有数据（分片副本）
+        password: 123456  # 开发环境暂用硬编码，生产必须替换
+      # 分库02 - 用户私有数据（修复时区为上海）
       ds_1:
         type: com.zaxxer.hikari.HikariDataSource
         driver-class-name: com.mysql.cj.jdbc.Driver
         url: jdbc:mysql://192.168.21.130:13306/big_market_02?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false
         username: root
         password: 123456
-      # 默认库 - 存储活动配置、规则、策略等公共基础数据
+      # 默认库 - 公共基础数据（修复时区为上海）
       big_market:
         type: com.zaxxer.hikari.HikariDataSource
         driver-class-name: com.mysql.cj.jdbc.Driver
         url: jdbc:mysql://192.168.21.130:13306/big_market?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false
         username: root
         password: 123456
-
-    # 2. 分片规则配置
     rules:
       sharding:
-        # 未在下文 tables 明确配置的表，全部走此默认数据源（即：award, strategy, rule_tree 等）
         default-data-source-name: big_market
-
         tables:
-          # ================== 第一部分：分库 + 分表 (每个库下有 4 张物理表) ==================
-
-          # 用户抽奖订单表 (Logic Table: user_raffle_order)
+          # 分库+分表 - 用户抽奖订单表
           user_raffle_order:
             actual-data-nodes: ds_${0..1}.user_raffle_order_00${0..3}
             database-strategy:
@@ -127,8 +103,7 @@ spring:
               standard:
                 sharding-column: user_id
                 sharding-algorithm-name: sys_user_tbl_alg
-
-          # 抽奖活动订单表 (Logic Table: raffle_activity_order)
+          # 分库+分表 - 抽奖活动订单表
           raffle_activity_order:
             actual-data-nodes: ds_${0..1}.raffle_activity_order_00${0..3}
             database-strategy:
@@ -139,8 +114,7 @@ spring:
               standard:
                 sharding-column: user_id
                 sharding-algorithm-name: sys_user_tbl_alg
-
-          # 用户中奖记录表 (Logic Table: user_award_record)
+          # 分库+分表 - 用户中奖记录表
           user_award_record:
             actual-data-nodes: ds_${0..1}.user_award_record_00${0..3}
             database-strategy:
@@ -151,8 +125,7 @@ spring:
               standard:
                 sharding-column: user_id
                 sharding-algorithm-name: sys_user_tbl_alg
-
-          # 用户中奖记录表 (Logic Table: user_award_record)
+          # 分库+分表 - 用户行为返利订单表
           user_behavior_rebate_order:
             actual-data-nodes: ds_${0..1}.user_behavior_rebate_order_00${0..3}
             database-strategy:
@@ -163,8 +136,7 @@ spring:
               standard:
                 sharding-column: user_id
                 sharding-algorithm-name: sys_user_tbl_alg
-
-          # 积分流水表 (Logic Table: user_credit_order)
+          # 分库+分表 - 积分流水表
           user_credit_order:
             actual-data-nodes: ds_${0..1}.user_credit_order_00${0..3}
             database-strategy:
@@ -175,183 +147,123 @@ spring:
               standard:
                 sharding-column: user_id
                 sharding-algorithm-name: sys_user_tbl_alg
-
-          # ================== 第二部分：仅分库 + 不分表 (每个库下只有 1 张物理表) ==================
-
-          # 抽奖账户总表
+          # 仅分库 - 抽奖账户总表
           raffle_activity_account:
             actual-data-nodes: ds_${0..1}.raffle_activity_account
             database-strategy:
               standard:
                 sharding-column: user_id
                 sharding-algorithm-name: sys_user_db_alg
-
-          # 抽奖账户月维度表
+          # 仅分库 - 抽奖账户月表
           raffle_activity_account_month:
             actual-data-nodes: ds_${0..1}.raffle_activity_account_month
             database-strategy:
               standard:
                 sharding-column: user_id
                 sharding-algorithm-name: sys_user_db_alg
-
-          # 抽奖账户日维度表
+          # 仅分库 - 抽奖账户日表
           raffle_activity_account_day:
             actual-data-nodes: ds_${0..1}.raffle_activity_account_day
             database-strategy:
               standard:
                 sharding-column: user_id
                 sharding-algorithm-name: sys_user_db_alg
-
-          # 积分账户表：承载用户的货币/积分资产
+          # 仅分库 - 积分账户表
           user_credit_account:
             actual-data-nodes: ds_${0..1}.user_credit_account
             database-strategy:
               standard:
                 sharding-column: user_id
                 sharding-algorithm-name: sys_user_db_alg
-
-          # 异步任务表：用于事务最终一致性补偿（如发送 MQ 消息失败后的重试）
+          # 仅分库 - 异步任务表
           task:
             actual-data-nodes: ds_${0..1}.task
             database-strategy:
               standard:
                 sharding-column: user_id
                 sharding-algorithm-name: sys_user_db_alg
-
-        # 3. 分片算法实现
+        # 分片算法配置
         sharding-algorithms:
-          # 自定义分库算法：基于 user_id 进行哈希计算路由到 ds_0 或 ds_1
           sys_user_db_alg:
             type: CLASS_BASED
             props:
               strategy: STANDARD
               algorithmClassName: com.c.types.common.MyDatabaseAlgorithm
-
-          # 自定义分表算法：基于 user_id 进行哈希计算路由到 _000 ~ _003
           sys_user_tbl_alg:
             type: CLASS_BASED
             props:
               strategy: STANDARD
               algorithmClassName: com.c.types.common.MyTableAlgorithm
-
-    # 4. 其他属性
     props:
-      # 打印 SQL 解析日志，非常关键，如果配置没生效，看这里的 Actual SQL 就能秒懂
-      sql-show: true
+      sql-show: true  # 开发环境开启SQL打印（便于调试）
 
 # ========================= MyBatis配置 =========================
 mybatis:
-  mapper-locations: classpath:/mybatis/mapper/*.xml  # Mapper映射文件路径
-  config-location: classpath:/mybatis/config/mybatis-config.xml  # MyBatis核心配置文件路径
+  mapper-locations: classpath:/mybatis/mapper/*.xml
+  config-location: classpath:/mybatis/config/mybatis-config.xml
 
 # ========================= Redis配置 =========================
 redis:
   sdk:
     config:
-      host: 192.168.21.130      # Redis服务器地址
-      port: 16379               # Redis端口
-      pool-size: 10             # 连接池最大连接数
-      min-idle-size: 5          # 连接池最小空闲连接数
-      connect-timeout: 5000     # 连接超时时间（单位：毫秒）
-      retry-attempts: 3         # 连接失败重试次数
+      host: 192.168.21.130
+      port: 16379
+      pool-size: 10
+      min-idle-size: 5
+      connect-timeout: 5000
+      retry-attempts: 3
 
 # ========================= 日志配置 =========================
 logging:
   level:
-    root: info  # 根日志级别
-    org.springframework.test: info  # Spring测试模块日志级别（屏蔽无用DEBUG日志）
-    com.c.infrastructure.adapter.repository: debug  # 数据访问层日志级别（便于调试SQL）
-    org.apache.shardingsphere: info  # 分库分表框架日志级别
-  config: classpath:logback-spring.xml  # 日志配置文件路径（Logback）
+    root: info
+    com.c.infrastructure.adapter.repository: debug  # 开发环境打印SQL详情
+    org.apache.shardingsphere: info
+  config: classpath:logback-spring.xml
 
-# ========================= Dubbo 框架配置：负责“服务发现与注册”（通讯录职责） =========================
+# ========================= Dubbo配置 =========================
 dubbo:
   application:
-    name: big-market  # 应用名称：在 Nacos 服务列表中显示的名称
-    version: 1.0      # 应用版本：用于区分不同版本的服务接口
-    logger: slf4j     # 日志适配：强制 Dubbo 使用 SLF4J，确保日志能被 Logback 统一收集
+    name: big-market
+    version: 1.0
+    logger: slf4j
   registry:
-    id: nacos-registry # 注册中心 ID：唯一标识该注册中心配置
-    # 【职责：找人】让 Dubbo 插件去 Nacos 登记 IP。注意：必须带 nacos:// 协议头
+    id: nacos-registry
     address: nacos://192.168.21.130:8848
   protocol:
-    name: dubbo       # 通信协议：使用高性能的 Dubbo 协议进行二进制传输
-    port: -1          # 端口配置：-1 表示由系统自动分配空闲端口，避免多实例冲突
+    name: dubbo
+    port: -1
   scan:
-    base-packages: com.c.trigger.api      # 扫描范围：指定哪些包下的接口需要暴露为 Dubbo 服务
+    base-packages: com.c.trigger.api
 
-# ========================= 自定义 Nacos SDK 配置：负责“动态配置管理”（中央广播站职责） =========================
+# ========================= Nacos配置 =========================
 nacos:
   sdk:
     config:
-      # 【连接地址层】
-      # server-addr: 物理通信入口，直接对接 Nacos 节点或 SLB
       server-addr: 192.168.21.130:8848
-      # registry: 逻辑注册地址，适配 Dubbo/RPC 习惯，作为物理地址的二重保障
       registry: 192.168.21.130:8848
-
-      # 【环境隔离层】
-      # namespace: 必须使用 Nacos 控制台生成的 UUID
       namespace: 5522e941-5541-4512-851e-8711540843e3
-      # group: 默认全局分组，若 @DCCValue 未指定则以此为准
       group: DEFAULT_GROUP
-
-      # 【核心文件层】
-      # data-id: 应用启动时默认关联的配置文件名
       data-id: gateway-api-config
-
-      # 【性能治理层】
-      # config-timeout: 网络读取超时，在高并发或跨机房场景下建议保持在 5000ms 以上
       config-timeout: 5000
-      # max-retries: 容错重试次数，防止瞬时网络抖动导致配置加载失败
       max-retries: 3
 
-
-# xxl-job https://www.xuxueli.com/xxl-job/#%E6%AD%A5%E9%AA%A4%E4%B8%80%EF%BC%9A%E8%B0%83%E5%BA%A6%E4%B8%AD%E5%BF%83%E9%85%8D%E7%BD%AE%EF%BC%9A
+# ========================= XXL-Job配置 =========================
 xxl:
   job:
-    # 验证信息 官网 Bug https://github.com/xuxueli/xxl-job/issues/1951
     accessToken: default_token
-    # 注册地址
     admin:
       addresses: http://192.168.21.130:9090/xxl-job-admin
-    # 注册执行器
     executor:
-      #  执行器注册 [选填]：优先使用该配置作为注册地址，为空时使用内嵌服务 ”IP:PORT“ 作为注册地址。从而更灵活的支持容器类型执行器动态IP和动态映射端口问题。
       address:
       appname: big-market-job
-      # 执行器IP 配置为本机IP [选填]：默认为空表示自动获取IP，多网卡时可手动设置指定IP，该IP不会绑定Host仅作为通讯实用；地址信息用于 "执行器注册" 和 "调度中心请求并触发任务"；
       ip: 10.11.166.210
-      # 执行器端口号 [选填]：小于等于0则自动获取；默认端口为9999，单机部署多个执行器时，注意要配置不同执行器端口；
       port: 9999
-      # 执行器运行日志文件存储磁盘路径 [选填] ：需要对该路径拥有读写权限；为空则使用默认路径；
       logpath: ./data/applogs/xxl-job/jobhandler
-      # 执行器日志文件保存天数 [选填] ： 过期日志自动清理, 限制值大于等于3时生效; 否则, 如-1, 关闭自动清理功能；
       logretentiondays: 30
 
+# ========================= 健康检查配置 =========================
 management:
   health:
     elasticsearch:
-      enabled: false  # 禁用 ES 的自动健康检查
-
-# ========================= 数据库配置（单库模式） =========================
-# 当前使用分库分表模式，此单库配置暂注释；如需切换为单库模式，可启用此配置并注释ShardingSphere相关配置
-#spring:
-#  datasource:
-#    # 数据源类型（HikariCP高性能连接池）
-#    type: com.zaxxer.hikari.HikariDataSource
-#    driver-class-name: com.mysql.cj.jdbc.Driver  # MySQL驱动类
-#    username: root                               # 数据库用户名
-#    password: 123456                             # 数据库密码
-#    url: jdbc:mysql://192.168.21.130:113306/big_market?useUnicode=true&characterEncoding=utf8&autoReconnect=true&zeroDateTimeBehavior=convertToNull&serverTimezone=UTC&useSSL=false
-#
-#    # HikariCP连接池配置（必须作为datasource的子属性）
-#    hikari:
-#      pool-name: Retail_HikariCP       # 连接池名称
-#      minimum-idle: 15                 # 最小空闲连接数
-#      maximum-pool-size: 25            # 最大连接数
-#      idle-timeout: 180000             # 空闲连接超时时间（单位：毫秒）
-#      max-lifetime: 1800000            # 连接最大生命周期（单位：毫秒）
-#      connection-timeout: 30000        # 连接获取超时时间（单位：毫秒）
-#      auto-commit: true                # 自动提交事务
-#      connection-test-query: SELECT 1  # 连接有效性检测SQL
+      enabled: false

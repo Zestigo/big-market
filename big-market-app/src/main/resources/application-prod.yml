@@ -1,47 +1,270 @@
+# ========================= 服务器基础配置 =========================
 server:
-  port: 8091
+  port: 8091                # 生产环境服务端口
+  tomcat:
+    threads:
+      max: 500              # 生产环境Tomcat最大工作线程数
+      min-spare: 100        # 生产环境Tomcat最小空闲线程数
+    accept-count: 50        # 生产环境请求队列长度
 
-# 线程池配置
+# ========================= 应用自定义配置 =========================
+app:
+  config:
+    api-version: v1         # 接口版本号
+    cross-origin: '*'  # 生产环境仅允许指定域名跨域
+
+# ========================= 自定义线程池配置 =========================
 thread:
   pool:
     executor:
       config:
-        core-pool-size: 20
-        max-pool-size: 50
-        keep-alive-time: 5000
-        block-queue-size: 5000
-        policy: CallerRunsPolicy
+        core-pool-size: 50          # 生产环境核心线程数
+        max-pool-size: 200          # 生产环境最大线程数
+        keep-alive-time: 5000       # 非核心线程空闲存活时间(ms)
+        block-queue-size: 10000     # 生产环境任务队列容量
+        policy: CallerRunsPolicy   # 拒绝策略：调用方执行（生产环境更安全）
 
-# 数据库配置
+# ========================= Spring核心配置 =========================
 spring:
-  datasource:
-    # 1. 明确数据源类型
-    type: com.zaxxer.hikari.HikariDataSource
-    driver-class-name: com.mysql.cj.jdbc.Driver
-    username: root
-    password: 123456
-    url: jdbc:mysql://192.168.21.130:13306/big_market?useUnicode=true&characterEncoding=utf8&autoReconnect=true&zeroDateTimeBehavior=convertToNull&serverTimezone=UTC&useSSL=false
+  main:
+    allow-bean-definition-overriding: true  # 允许Bean覆盖（复杂项目必备）
 
-    # 2. 【核心修正】hikari 必须缩进在 datasource 内部
-    hikari:
-      pool-name: Retail_HikariCP
-      minimum-idle: 15
-      maximum-pool-size: 25
-      idle-timeout: 180000
-      max-lifetime: 1800000
-      connection-timeout: 30000
-      auto-commit: true
-      connection-test-query: SELECT 1
+  # ========================= RabbitMQ 配置（生产环境+修复地址） =========================
+  rabbitmq:
+    addresses: 192.168.21.130:5672  # 正确写法：地址+端口
+    username: ${RABBITMQ_USERNAME:prod_admin}  # 环境变量注入，默认值兜底
+    password: ${RABBITMQ_PASSWORD:prod_123456} # 敏感密码不硬编码
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    listener:
+      simple:
+        prefetch: 5                  # 生产环境预取数（提高消费效率）
+    topic:
+      activity_sku_stock:
+        exchange: activity_sku_stock_exchange
+        routing-key: activity_sku_stock_routing_key
+        queue: activity_sku_stock_queue
+      send_award:
+        exchange: send_award_exchange
+        routing-key: send_award_routing_key
+        queue: send_award_queue
+      send_rebate:
+        exchange: send_rebate_exchange
+        routing-key: send_rebate_routing_key
+        queue: send_rebate_queue
+      credit_adjust_success:
+        exchange: credit_adjust_success_exchange
+        routing-key: credit_adjust_success_routing_key
+        queue: credit_adjust_success_queue
 
-# MyBatis 配置
+  # ========================= Elasticsearch 配置 =========================
+  elasticsearch:
+    datasource:
+      driverClassName: org.elasticsearch.xpack.sql.jdbc.EsDriver
+      url: jdbc:es://http://192.168.21.130:9200
+
+  # ========================= 分库分表（ShardingSphere）配置（删除原生datasource避免冲突） =========================
+  shardingsphere:
+    datasource:
+      names: ds_0,ds_1,big_market
+      # 分库01 - 用户私有数据（修复时区+环境变量注入密码）
+      ds_0:
+        type: com.zaxxer.hikari.HikariDataSource
+        driver-class-name: com.mysql.cj.jdbc.Driver
+        url: jdbc:mysql://192.168.21.130:13306/big_market_01?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=true
+        username: ${DB_USERNAME:prod_root}
+        password: ${DB_PASSWORD:prod_123456}  # 敏感密码环境变量注入
+      # 分库02 - 用户私有数据（修复时区+环境变量注入密码）
+      ds_1:
+        type: com.zaxxer.hikari.HikariDataSource
+        driver-class-name: com.mysql.cj.jdbc.Driver
+        url: jdbc:mysql://192.168.21.130:13306/big_market_02?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=true
+        username: ${DB_USERNAME:prod_root}
+        password: ${DB_PASSWORD:prod_123456}
+      # 默认库 - 公共基础数据（修复时区+环境变量注入密码）
+      big_market:
+        type: com.zaxxer.hikari.HikariDataSource
+        driver-class-name: com.mysql.cj.jdbc.Driver
+        url: jdbc:mysql://192.168.21.130:13306/big_market?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=true
+        username: ${DB_USERNAME:prod_root}
+        password: ${DB_PASSWORD:prod_123456}
+    rules:
+      sharding:
+        default-data-source-name: big_market
+        tables:
+          # 分库+分表 - 用户抽奖订单表
+          user_raffle_order:
+            actual-data-nodes: ds_${0..1}.user_raffle_order_00${0..3}
+            database-strategy:
+              standard:
+                sharding-column: user_id
+                sharding-algorithm-name: sys_user_db_alg
+            table-strategy:
+              standard:
+                sharding-column: user_id
+                sharding-algorithm-name: sys_user_tbl_alg
+          # 分库+分表 - 抽奖活动订单表
+          raffle_activity_order:
+            actual-data-nodes: ds_${0..1}.raffle_activity_order_00${0..3}
+            database-strategy:
+              standard:
+                sharding-column: user_id
+                sharding-algorithm-name: sys_user_db_alg
+            table-strategy:
+              standard:
+                sharding-column: user_id
+                sharding-algorithm-name: sys_user_tbl_alg
+          # 分库+分表 - 用户中奖记录表
+          user_award_record:
+            actual-data-nodes: ds_${0..1}.user_award_record_00${0..3}
+            database-strategy:
+              standard:
+                sharding-column: user_id
+                sharding-algorithm-name: sys_user_db_alg
+            table-strategy:
+              standard:
+                sharding-column: user_id
+                sharding-algorithm-name: sys_user_tbl_alg
+          # 分库+分表 - 用户行为返利订单表
+          user_behavior_rebate_order:
+            actual-data-nodes: ds_${0..1}.user_behavior_rebate_order_00${0..3}
+            database-strategy:
+              standard:
+                sharding-column: user_id
+                sharding-algorithm-name: sys_user_db_alg
+            table-strategy:
+              standard:
+                sharding-column: user_id
+                sharding-algorithm-name: sys_user_tbl_alg
+          # 分库+分表 - 积分流水表
+          user_credit_order:
+            actual-data-nodes: ds_${0..1}.user_credit_order_00${0..3}
+            database-strategy:
+              standard:
+                sharding-column: user_id
+                sharding-algorithm-name: sys_user_db_alg
+            table-strategy:
+              standard:
+                sharding-column: user_id
+                sharding-algorithm-name: sys_user_tbl_alg
+          # 仅分库 - 抽奖账户总表
+          raffle_activity_account:
+            actual-data-nodes: ds_${0..1}.raffle_activity_account
+            database-strategy:
+              standard:
+                sharding-column: user_id
+                sharding-algorithm-name: sys_user_db_alg
+          # 仅分库 - 抽奖账户月表
+          raffle_activity_account_month:
+            actual-data-nodes: ds_${0..1}.raffle_activity_account_month
+            database-strategy:
+              standard:
+                sharding-column: user_id
+                sharding-algorithm-name: sys_user_db_alg
+          # 仅分库 - 抽奖账户日表
+          raffle_activity_account_day:
+            actual-data-nodes: ds_${0..1}.raffle_activity_account_day
+            database-strategy:
+              standard:
+                sharding-column: user_id
+                sharding-algorithm-name: sys_user_db_alg
+          # 仅分库 - 积分账户表
+          user_credit_account:
+            actual-data-nodes: ds_${0..1}.user_credit_account
+            database-strategy:
+              standard:
+                sharding-column: user_id
+                sharding-algorithm-name: sys_user_db_alg
+          # 仅分库 - 异步任务表
+          task:
+            actual-data-nodes: ds_${0..1}.task
+            database-strategy:
+              standard:
+                sharding-column: user_id
+                sharding-algorithm-name: sys_user_db_alg
+        # 分片算法配置
+        sharding-algorithms:
+          sys_user_db_alg:
+            type: CLASS_BASED
+            props:
+              strategy: STANDARD
+              algorithmClassName: com.c.types.common.MyDatabaseAlgorithm
+          sys_user_tbl_alg:
+            type: CLASS_BASED
+            props:
+              strategy: STANDARD
+              algorithmClassName: com.c.types.common.MyTableAlgorithm
+    props:
+      sql-show: false  # 生产环境关闭SQL打印（避免性能损耗）
+
+# ========================= MyBatis配置 =========================
 mybatis:
   mapper-locations: classpath:/mybatis/mapper/*.xml
   config-location: classpath:/mybatis/config/mybatis-config.xml
 
-# 日志配置
+# ========================= Redis配置（生产环境+安全优化） =========================
+redis:
+  sdk:
+    config:
+      host: 192.168.21.130
+      port: 16379
+      pool-size: 50          # 生产环境连接池大小
+      min-idle-size: 20      # 生产环境最小空闲连接
+      connect-timeout: 5000
+      retry-attempts: 3
+      password: ${REDIS_PASSWORD:prod_redis123}  # Redis密码环境变量注入
+
+# ========================= 日志配置（生产环境） =========================
 logging:
   level:
-    root: info
-    # 建议添加这一行，方便看到具体的 SQL 执行情况，排查 NPE 数据来源
-    com.c.infrastructure.adapter.repository: debug
+    root: warn               # 生产环境日志级别提升为warn（减少日志量）
+    com.c.infrastructure.adapter.repository: info
+    org.apache.shardingsphere: warn
   config: classpath:logback-spring.xml
+
+# ========================= Dubbo配置 =========================
+dubbo:
+  application:
+    name: big-market
+    version: 1.0
+    logger: slf4j
+  registry:
+    id: nacos-registry
+    address: nacos://192.168.21.130:8848
+  protocol:
+    name: dubbo
+    port: -1
+  scan:
+    base-packages: com.c.trigger.api
+
+# ========================= Nacos配置 =========================
+nacos:
+  sdk:
+    config:
+      server-addr: 192.168.21.130:8848
+      registry: 192.168.21.130:8848
+      namespace: 5522e941-5541-4512-851e-8711540843e3
+      group: DEFAULT_GROUP
+      data-id: gateway-api-config
+      config-timeout: 5000
+      max-retries: 3
+
+# ========================= XXL-Job配置 =========================
+xxl:
+  job:
+    accessToken: ${XXL_JOB_TOKEN:default_token}  # 环境变量注入
+    admin:
+      addresses: http://192.168.21.130:9090/xxl-job-admin
+    executor:
+      address:
+      appname: big-market-job
+      ip: 10.11.166.210
+      port: 9999
+      logpath: ./data/applogs/xxl-job/jobhandler
+      logretentiondays: 90  # 生产环境日志保留90天
+
+# ========================= 健康检查配置 =========================
+management:
+  health:
+    elasticsearch:
+      enabled: false

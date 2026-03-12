@@ -1,8 +1,9 @@
 spring:
+  # 应用配置名称（用于配置加载时的标识）
   config:
     name: big-market-app
+  # 环境激活配置
   profiles:
-    # 代码离开了 Windows 开发环境（localhost），
-    # 跑在了虚拟机（Docker）或者云服务器上，从流程上来说，就是在进行“线上部署”。
-    active: dev # 线上环境 (prod)；线下环境 (dev)
-
+    # 环境标识：dev(开发环境) | prod(生产环境)
+    # 开发阶段用dev，部署上线前切换为prod
+    active: dev
